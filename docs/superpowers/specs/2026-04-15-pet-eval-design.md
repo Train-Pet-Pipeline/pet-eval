@@ -12,6 +12,10 @@ pet-eval is a standalone evaluation repo with two core responsibilities:
 
 ### Directory Structure
 
+> **Note:** Uses `src/` layout (consistent with pet-schema, pet-data, pet-annotation, pet-train)
+> rather than the flat layout shown in DEVELOPMENT_GUIDE section 5.5. This is a packaging
+> decision for proper import isolation; all other repos follow the same convention.
+
 ```
 pet-eval/
 ├── src/pet_eval/
@@ -20,10 +24,11 @@ pet-eval/
 │   ├── metrics/
 │   │   ├── __init__.py
 │   │   ├── schema_compliance.py  # Schema compliance rate (jsonschema + code-level)
-│   │   ├── calibration.py        # ECE (Expected Calibration Error)
+│   │   ├── calibration.py        # ECE (Expected Calibration Error) — informational only
 │   │   ├── anomaly_recall.py     # Recall + false positive rate on anomaly set
 │   │   ├── mood_correlation.py   # Spearman correlation vs 72B teacher
 │   │   ├── narrative_quality.py  # BERTScore (Chinese BERT)
+│   │   ├── latency.py            # Latency stats from raw timing data (P50/P95/P99)
 │   │   ├── kl_quantization.py    # KL divergence: W8A8 vs FP16
 │   │   └── audio_accuracy.py     # Audio CNN: per-class P/R/F1, confusion matrix
 │   ├── runners/
@@ -58,11 +63,11 @@ Unified return type for all metric modules.
 ```python
 @dataclass
 class MetricResult:
-    name: str           # Metric name (e.g. "schema_compliance")
-    value: float        # Computed value
-    threshold: float    # Gate threshold from params.yaml
-    passed: bool        # Whether value meets threshold
-    details: dict       # Additional info (per-class breakdown, etc.)
+    name: str                    # Metric name (e.g. "schema_compliance")
+    value: float                 # Computed value
+    threshold: float | None      # Gate threshold from params.yaml (None = informational only)
+    passed: bool                 # Whether value meets threshold (always True if informational)
+    details: dict                # Additional info (per-class breakdown, etc.)
 ```
 
 ### GateResult
@@ -82,18 +87,21 @@ class GateResult:
 
 All metric modules are pure computational functions — they receive data, return MetricResult. No I/O.
 
-### 3.1 VLM Metrics (5 modules)
+### 3.1 VLM Metrics (6 modules)
 
 **schema_compliance.py**
 - Input: list of model output JSON strings
 - Computation: call `pet_schema.validate_output()` for each, compute pass rate + mean |distribution_sum - 1.0|
 - Returns: two MetricResults (compliance_rate, distribution_sum_error)
 
-**calibration.py**
+**calibration.py** _(informational only — not gated)_
 - Input: model outputs (with confidence scores) + gold set labels
 - Computation: bin predictions by confidence, compute ECE = mean(|accuracy - confidence|) per bin
 - Requires: gold set with ground-truth labels
 - Skipped when: gold set not available
+- **Note:** ECE is not in the DEVELOPMENT_GUIDE gate metrics table. It is logged to wandb for
+  monitoring but excluded from gate pass/fail logic. MetricResult.threshold is set to None
+  and MetricResult.passed is always True for informational metrics.
 
 **anomaly_recall.py**
 - Input: model outputs + anomaly_set labels
@@ -112,14 +120,23 @@ All metric modules are pure computational functions — they receive data, retur
 - Computation: BERTScore using Chinese BERT model (precision/recall/F1)
 - Requires: teacher reference narratives
 - Skipped when: teacher outputs not available
+- **Note:** Depends on teacher outputs (separate from gold set). When gold set is missing but
+  teacher references are available, this metric still runs.
+
+**latency.py**
+- Input: list of raw inference timing measurements (milliseconds)
+- Computation: P50, P95, P99 percentiles from timing data
+- Returns: MetricResult with P95 as the gated value, P50/P99 in details
+- **Note:** This is a pure computation module. The actual timing data collection (ADB commands,
+  device warmup, etc.) is done by the eval_quantized runner, which passes raw timings here.
 
 ### 3.2 Audio Metric (1 module)
 
 **audio_accuracy.py**
-- Input: predicted labels + ground-truth labels, class names
+- Input: predicted labels + ground-truth labels, class names (from params.yaml)
 - Computation: overall accuracy, per-class precision/recall/F1, confusion matrix
 - Returns: MetricResult with details containing per-class breakdown
-- Classes: eating, drinking, vomiting, ambient, other
+- Classes read from params.yaml (default: eating, drinking, vomiting, ambient, other)
 
 ### 3.3 Quantization Metric (1 module)
 
