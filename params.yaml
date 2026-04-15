@@ -15,6 +15,7 @@ gates:
 benchmark:
   gold_set_path: "benchmark/gold_set_v1.jsonl"
   anomaly_set_path: "benchmark/anomaly_set_v1.jsonl"
+  teacher_reference_path: "benchmark/teacher_references_v1.jsonl"
   audio_test_dir: ""
 
 wandb:
