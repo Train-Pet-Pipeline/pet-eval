@@ -99,7 +99,7 @@ version = "0.1.0"
 requires-python = ">=3.11,<3.12"
 
 dependencies = [
-    "pet-schema",
+    "pet-schema==1.0.0",
     "torch>=2.1",
     "transformers>=4.37",
     "torchaudio>=2.1",
@@ -2478,7 +2478,10 @@ def main() -> None:
     parser.add_argument("--params", default="params.yaml", help="Path to params.yaml")
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    from pythonjsonlogger import jsonlogger
+    handler = logging.StreamHandler()
+    handler.setFormatter(jsonlogger.JsonFormatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    logging.basicConfig(level=logging.INFO, handlers=[handler])
 
     result = run_eval_trained(args.model_path, args.run_name, args.params)
     sys.exit(0 if result.passed else 1)
@@ -2674,7 +2677,10 @@ def main() -> None:
     parser.add_argument("--params", default="params.yaml", help="Path to params.yaml")
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    from pythonjsonlogger import jsonlogger
+    handler = logging.StreamHandler()
+    handler.setFormatter(jsonlogger.JsonFormatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    logging.basicConfig(level=logging.INFO, handlers=[handler])
 
     result = run_eval_audio(args.model_path, args.run_name, args.params)
     sys.exit(0 if result.passed else 1)
@@ -2939,7 +2945,10 @@ def main() -> None:
     parser.add_argument("--params", default="params.yaml", help="Path to params.yaml")
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    from pythonjsonlogger import jsonlogger
+    handler = logging.StreamHandler()
+    handler.setFormatter(jsonlogger.JsonFormatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    logging.basicConfig(level=logging.INFO, handlers=[handler])
 
     result = run_eval_quantized(args.model_dir, args.run_name, args.device_id, args.params)
     sys.exit(0 if result.passed else 1)
@@ -3010,7 +3019,10 @@ def main() -> None:
     p_quant.add_argument("--params", default="params.yaml")
 
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    from pythonjsonlogger import jsonlogger
+    handler = logging.StreamHandler()
+    handler.setFormatter(jsonlogger.JsonFormatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    logging.basicConfig(level=logging.INFO, handlers=[handler])
 
     if args.command == "eval-trained":
         from pet_eval.runners.eval_trained import run_eval_trained
