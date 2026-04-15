@@ -9,7 +9,7 @@ import argparse
 import logging
 import sys
 
-from pet_eval.logging_setup import setup_logging
+from pet_infra.logging import setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ def main() -> None:
 
     Exits with code 0 when the gate passes, 1 when it fails.
     """
-    setup_logging()
+    setup_logging("pet-eval")
 
     parser = argparse.ArgumentParser(
         prog="pet-eval",

@@ -15,10 +15,11 @@ from typing import Any
 import torch
 import torchaudio
 import yaml
+from pet_infra.device import detect_device
+from pet_infra.logging import setup_logging
 
 from pet_eval.gate.checker import check_gate
 from pet_eval.gate.types import GateResult
-from pet_eval.logging_setup import setup_logging
 from pet_eval.metrics.audio_accuracy import compute_audio_accuracy
 from pet_eval.report.generate_report import generate_report
 
@@ -81,12 +82,7 @@ def _run_audio_inference(
     model.eval()
 
     # Determine device
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-    elif torch.backends.mps.is_available():
-        device = torch.device("mps")
-    else:
-        device = torch.device("cpu")
+    device = torch.device(detect_device())
     model = model.to(device)
 
     predicted: list[str] = []
@@ -215,7 +211,7 @@ def main() -> None:
     Parses arguments, runs evaluation, and exits with code 0 on pass or 1 on
     fail.
     """
-    setup_logging()
+    setup_logging("pet-eval")
 
     parser = argparse.ArgumentParser(
         description="Evaluate an audio CNN checkpoint against the pet-eval benchmark."
