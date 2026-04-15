@@ -40,7 +40,7 @@ def _distribution_sum_error(raw: str) -> float:
 
     errors: list[float] = []
 
-    pet = data.get("pet", {})
+    pet = data.get("pet") or {}
 
     # pet.action.distribution
     action_dist = pet.get("action", {}).get("distribution", None)
