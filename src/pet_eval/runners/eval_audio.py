@@ -13,26 +13,14 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pythonjsonlogger import jsonlogger
 
 from pet_eval.gate.checker import check_gate
 from pet_eval.gate.types import GateResult
+from pet_eval.logging_setup import setup_logging
 from pet_eval.metrics.audio_accuracy import compute_audio_accuracy
 from pet_eval.report.generate_report import generate_report
 
 logger = logging.getLogger(__name__)
-
-
-def _setup_logging() -> None:
-    """Configure structured JSON logging for the CLI entry point."""
-    handler = logging.StreamHandler()
-    formatter = jsonlogger.JsonFormatter(
-        "%(asctime)s %(name)s %(levelname)s %(message)s"
-    )
-    handler.setFormatter(formatter)
-    root = logging.getLogger()
-    root.addHandler(handler)
-    root.setLevel(logging.INFO)
 
 
 def _run_audio_inference(
@@ -162,7 +150,7 @@ def main() -> None:
     Parses arguments, runs evaluation, and exits with code 0 on pass or 1 on
     fail.
     """
-    _setup_logging()
+    setup_logging()
 
     parser = argparse.ArgumentParser(
         description="Evaluate an audio CNN checkpoint against the pet-eval benchmark."

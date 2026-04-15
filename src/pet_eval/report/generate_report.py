@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import wandb
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from pet_eval.gate.types import GateResult
 
@@ -39,6 +40,47 @@ class _WandbConfig:
             project=cfg["project"],
             entity=entity_raw if entity_raw else None,
         )
+
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
+def _init_wandb(
+    config: _WandbConfig,
+    eval_type: str,
+    run_name: str,
+    tags: list[str],
+    metadata: dict[str, Any],
+) -> Any:
+    """Initialise a W&B run with retry for transient network failures.
+
+    Args:
+        config: Parsed wandb configuration.
+        eval_type: Category label for the evaluation.
+        run_name: Short identifier for the run.
+        tags: Tags to apply to the run.
+        metadata: Key/value pairs stored as the run config.
+
+    Returns:
+        The ``wandb.Run`` instance.
+    """
+    return wandb.init(
+        project=config.project,
+        entity=config.entity,
+        name=f"{eval_type}/{run_name}",
+        tags=tags,
+        config=metadata,
+    )
+
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
+def _log_and_finish(run: Any, payload: dict[str, Any]) -> None:
+    """Log detail payload and finish the W&B run with retry.
+
+    Args:
+        run: An active ``wandb.Run`` instance.
+        payload: Structured detail payload to log.
+    """
+    run.log(payload)
+    run.finish()
 
 
 def generate_report(
@@ -74,13 +116,7 @@ def generate_report(
     if gate_result.skipped:
         tags.append("has_skipped")
 
-    run = wandb.init(
-        project=config.project,
-        entity=config.entity,
-        name=f"{eval_type}/{run_name}",
-        tags=tags,
-        config=metadata,
-    )
+    run = _init_wandb(config, eval_type, run_name, tags, metadata)
 
     # Log individual metric results to summary.
     for metric in gate_result.results:
@@ -102,9 +138,7 @@ def generate_report(
     for metric in gate_result.results:
         detail_payload[f"metric/{metric.name}"] = metric.value
 
-    run.log(detail_payload)
-
-    run.finish()
+    _log_and_finish(run, detail_payload)
 
     logger.info(
         "generate_report",

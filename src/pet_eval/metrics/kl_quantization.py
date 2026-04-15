@@ -61,13 +61,14 @@ def compute_kl_divergence(
         quant_clamped = quant.clamp(min=1e-10)
 
         # F.kl_div expects:
-        #   input  = log-probabilities (first arg)
-        #   target = probabilities     (second arg, log_target=False)
-        # KL(fp16 || quant) = sum( fp16 * log(fp16 / quant) )
-        # → log_input = log(fp16), target = quant
+        #   input  = log-probabilities of Q (first arg)
+        #   target = probabilities of P     (second arg, log_target=False)
+        # Result: sum( P * (log(P) - log(Q)) ) = KL(P || Q)
+        # We want KL(fp16 || quant), so P=fp16, Q=quant:
+        #   input = log(quant), target = fp16
         kl = functional.kl_div(
-            fp16_clamped.log(),
-            quant_clamped,
+            quant_clamped.log(),
+            fp16_clamped,
             reduction="sum",
             log_target=False,
         )

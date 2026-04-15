@@ -16,10 +16,10 @@ import sys
 from typing import Any
 
 import yaml
-from pythonjsonlogger import jsonlogger
 
 from pet_eval.gate.checker import check_gate
 from pet_eval.gate.types import GateResult
+from pet_eval.logging_setup import setup_logging
 from pet_eval.metrics.latency import compute_latency
 from pet_eval.metrics.schema_compliance import compute_schema_compliance
 from pet_eval.report.generate_report import generate_report
@@ -34,18 +34,6 @@ _GOLD_SET_METRICS: list[str] = [
     "mood_spearman",
     "narrative_bertscore",
 ]
-
-
-def _setup_logging() -> None:
-    """Configure structured JSON logging for the CLI entry point."""
-    handler = logging.StreamHandler()
-    formatter = jsonlogger.JsonFormatter(
-        "%(asctime)s %(name)s %(levelname)s %(message)s"
-    )
-    handler.setFormatter(formatter)
-    root = logging.getLogger()
-    root.addHandler(handler)
-    root.setLevel(logging.INFO)
 
 
 def _run_on_device(model_dir: str, device_id: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -220,7 +208,7 @@ def main() -> None:
     Parses arguments, runs evaluation, and exits with code 0 on pass or 1 on
     fail.
     """
-    _setup_logging()
+    setup_logging()
 
     parser = argparse.ArgumentParser(
         description="Evaluate a quantized VLM model against the pet-eval benchmark."

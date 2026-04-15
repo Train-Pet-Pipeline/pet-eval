@@ -13,26 +13,14 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pythonjsonlogger import jsonlogger
 
 from pet_eval.gate.checker import check_gate
 from pet_eval.gate.types import GateResult
+from pet_eval.logging_setup import setup_logging
 from pet_eval.metrics.schema_compliance import compute_schema_compliance
 from pet_eval.report.generate_report import generate_report
 
 logger = logging.getLogger(__name__)
-
-
-def _setup_logging() -> None:
-    """Configure structured JSON logging for the CLI entry point."""
-    handler = logging.StreamHandler()
-    formatter = jsonlogger.JsonFormatter(
-        "%(asctime)s %(name)s %(levelname)s %(message)s"
-    )
-    handler.setFormatter(formatter)
-    root = logging.getLogger()
-    root.addHandler(handler)
-    root.setLevel(logging.INFO)
 
 
 def _run_inference(
@@ -150,7 +138,17 @@ def run_eval_trained(
     )
 
     # 5. Build skipped list
+    #    narrative_bertscore and mood_spearman depend on teacher references (not
+    #    gold set).  Per the design spec, they should run when teacher outputs
+    #    are available even if the gold set is absent.  For now, teacher
+    #    references are not yet available, so they are always skipped.
     skipped: list[str] = []
+
+    # Teacher-reference-dependent metrics — skipped until teacher outputs exist.
+    # TODO: Check for teacher reference file and conditionally skip.
+    has_teacher_references = False
+    if not has_teacher_references:
+        skipped.extend(["mood_spearman", "narrative_bertscore"])
 
     if not has_gold_set:
         skipped.extend(
@@ -158,8 +156,6 @@ def run_eval_trained(
                 "anomaly_recall",
                 "anomaly_false_positive",
                 "calibration_ece",
-                "mood_spearman",
-                "narrative_bertscore",
             ]
         )
     elif not has_anomaly_set:
@@ -187,7 +183,7 @@ def main() -> None:
     Parses arguments, runs evaluation, and exits with code 0 on pass or 1 on
     fail.
     """
-    _setup_logging()
+    setup_logging()
 
     parser = argparse.ArgumentParser(
         description="Evaluate a trained VLM checkpoint against the pet-eval benchmark."

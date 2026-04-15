@@ -9,21 +9,9 @@ import argparse
 import logging
 import sys
 
-from pythonjsonlogger import jsonlogger
+from pet_eval.logging_setup import setup_logging
 
 logger = logging.getLogger(__name__)
-
-
-def _setup_logging() -> None:
-    """Configure structured JSON logging for the CLI entry point."""
-    handler = logging.StreamHandler()
-    formatter = jsonlogger.JsonFormatter(
-        "%(asctime)s %(name)s %(levelname)s %(message)s"
-    )
-    handler.setFormatter(formatter)
-    root = logging.getLogger()
-    root.addHandler(handler)
-    root.setLevel(logging.INFO)
 
 
 def main() -> None:
@@ -36,7 +24,7 @@ def main() -> None:
 
     Exits with code 0 when the gate passes, 1 when it fails.
     """
-    _setup_logging()
+    setup_logging()
 
     parser = argparse.ArgumentParser(
         prog="pet-eval",
