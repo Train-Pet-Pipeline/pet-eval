@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.pth
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Testing
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Type checking
+.mypy_cache/
+
+# Linting
+.ruff_cache/
+
+# Outputs
+outputs/
+results/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Tools
+.DS_Store
+Thumbs.db
+
+# OS
+*.log
+
+# wandb
+wandb/
+
+# Benchmark data (checked in separately or downloaded)
+*.jsonl
+frames/
+
+# Secrets / credentials
+*.env
+.env
