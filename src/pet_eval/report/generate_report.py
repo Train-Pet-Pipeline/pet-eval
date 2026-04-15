@@ -9,8 +9,15 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-import wandb
 from tenacity import retry, stop_after_attempt, wait_exponential
+
+try:
+    import wandb
+
+    _HAS_WANDB = True
+except ImportError:
+    wandb = None  # type: ignore[assignment]
+    _HAS_WANDB = False
 
 from pet_eval.gate.types import GateResult
 
@@ -116,20 +123,7 @@ def generate_report(
     if gate_result.skipped:
         tags.append("has_skipped")
 
-    run = _init_wandb(config, eval_type, run_name, tags, metadata)
-
-    # Log individual metric results to summary.
-    for metric in gate_result.results:
-        run.summary[f"metric/{metric.name}/value"] = metric.value
-        run.summary[f"metric/{metric.name}/threshold"] = metric.threshold
-        run.summary[f"metric/{metric.name}/passed"] = metric.passed
-
-    # Log gate-level summary fields.
-    run.summary["gate/passed"] = gate_result.passed
-    run.summary["gate/summary"] = gate_result.summary
-    run.summary["gate/skipped"] = gate_result.skipped
-
-    # Structured detail log for timeline view.
+    # Build structured report payload (used for both wandb and local fallback).
     detail_payload: dict[str, Any] = {
         "gate_passed": gate_result.passed,
         "gate_summary": gate_result.summary,
@@ -138,14 +132,63 @@ def generate_report(
     for metric in gate_result.results:
         detail_payload[f"metric/{metric.name}"] = metric.value
 
-    _log_and_finish(run, detail_payload)
+    # Try wandb; fall back to local JSON report if unavailable.
+    try:
+        if not _HAS_WANDB:
+            raise ImportError("wandb not installed")
 
-    logger.info(
-        "generate_report",
-        extra={
+        run = _init_wandb(config, eval_type, run_name, tags, metadata)
+
+        for metric in gate_result.results:
+            run.summary[f"metric/{metric.name}/value"] = metric.value
+            run.summary[f"metric/{metric.name}/threshold"] = metric.threshold
+            run.summary[f"metric/{metric.name}/passed"] = metric.passed
+
+        run.summary["gate/passed"] = gate_result.passed
+        run.summary["gate/summary"] = gate_result.summary
+        run.summary["gate/skipped"] = gate_result.skipped
+
+        _log_and_finish(run, detail_payload)
+
+        logger.info(
+            "generate_report",
+            extra={
+                "eval_type": eval_type,
+                "run_name": run_name,
+                "passed": gate_result.passed,
+                "wandb_project": config.project,
+            },
+        )
+    except Exception:
+        import json
+        from pathlib import Path
+
+        logger.warning(
+            "wandb unavailable, writing local report",
+            extra={"eval_type": eval_type, "run_name": run_name},
+        )
+        report_dir = Path(metadata.get("model_path", ".")) / "eval_reports"
+        report_dir.mkdir(parents=True, exist_ok=True)
+        report_path = report_dir / f"{eval_type}_{run_name}.json"
+
+        local_report = {
             "eval_type": eval_type,
             "run_name": run_name,
-            "passed": gate_result.passed,
-            "wandb_project": config.project,
-        },
-    )
+            "metadata": metadata,
+            **detail_payload,
+            "metrics_detail": [
+                {
+                    "name": m.name,
+                    "value": m.value,
+                    "threshold": m.threshold,
+                    "passed": m.passed,
+                }
+                for m in gate_result.results
+            ],
+        }
+        with open(report_path, "w") as fh:
+            json.dump(local_report, fh, indent=2, ensure_ascii=False)
+        logger.info(
+            "local report saved",
+            extra={"path": str(report_path), "passed": gate_result.passed},
+        )

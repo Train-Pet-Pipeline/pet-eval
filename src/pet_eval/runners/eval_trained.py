@@ -23,12 +23,74 @@ from pet_eval.report.generate_report import generate_report
 logger = logging.getLogger(__name__)
 
 
+def _load_model(model_path: str, params: dict[str, Any]) -> tuple[Any, Any]:
+    """Load base model with LoRA adapter merged for inference.
+
+    Reads adapter_config.json from model_path to determine the base model,
+    then loads and merges the LoRA adapter.
+
+    Args:
+        model_path: Path to the trained LoRA adapter directory.
+        params: Full params dict (used for inference config).
+
+    Returns:
+        Tuple of (model, processor) ready for inference.
+
+    Raises:
+        FileNotFoundError: If model_path or adapter_config.json does not exist.
+    """
+    import torch
+    from peft import PeftModel
+    from transformers import AutoModelForCausalLM, AutoProcessor
+
+    adapter_dir = Path(model_path)
+    adapter_config_path = adapter_dir / "adapter_config.json"
+    if not adapter_config_path.exists():
+        raise FileNotFoundError(f"adapter_config.json not found in {model_path}")
+
+    with open(adapter_config_path) as f:
+        adapter_cfg = json.load(f)
+    base_model_name = adapter_cfg.get("base_model_name_or_path", "")
+
+    inference_cfg = params.get("inference", {})
+    device = "cpu"
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        device = "mps"
+
+    logger.info(
+        "_load_model",
+        extra={"base_model": base_model_name, "adapter": model_path, "device": device},
+    )
+
+    dtype = torch.bfloat16 if device == "cuda" else torch.float32
+    processor = AutoProcessor.from_pretrained(base_model_name, trust_remote_code=True)
+    base_model = AutoModelForCausalLM.from_pretrained(
+        base_model_name,
+        torch_dtype=dtype,
+        trust_remote_code=True,
+        device_map=device if device == "cuda" else None,
+    )
+    model = PeftModel.from_pretrained(base_model, model_path)
+    model = model.merge_and_unload()
+
+    if device in ("mps", "cpu"):
+        model = model.to(device)
+
+    model.eval()
+    return model, processor
+
+
 def _run_inference(
     model_path: str,
     gold_set_path: str | None,
     params: dict[str, Any],
 ) -> list[str]:
     """Run VLM inference over the gold set and return raw output strings.
+
+    Loads the model with LoRA adapter merged, processes each gold set record
+    (image + prompt), and returns the model's raw JSON output strings.
 
     Args:
         model_path: Path to the trained model checkpoint directory.
@@ -37,7 +99,7 @@ def _run_inference(
 
     Returns:
         List of raw JSON strings produced by the model.  Returns an empty list
-        when *gold_set_path* is None or when inference is not yet implemented.
+        when *gold_set_path* is None.
     """
     if gold_set_path is None:
         return []
@@ -49,17 +111,73 @@ def _run_inference(
             if line:
                 records.append(json.loads(line))
 
+    if not records:
+        return []
+
     logger.info(
         "_run_inference: loaded gold set",
         extra={"n_records": len(records), "model_path": model_path},
     )
 
-    # TODO: Actual inference depends on HF model loading.
-    logger.warning(
-        "Model inference not yet implemented",
-        extra={"model_path": model_path, "n_records": len(records)},
+    import torch
+    from PIL import Image
+
+    inference_cfg = params.get("inference", {})
+    max_new_tokens = inference_cfg.get("max_new_tokens", 1024)
+
+    model, processor = _load_model(model_path, params)
+    outputs: list[str] = []
+
+    for i, record in enumerate(records):
+        image_path = record.get("image", record.get("images", [""])[0] if record.get("images") else "")
+        prompt_text = record.get("prompt", record.get("instruction", ""))
+        system_text = record.get("system", "")
+
+        messages: list[dict[str, Any]] = []
+        if system_text:
+            messages.append({"role": "system", "content": system_text})
+
+        user_content: list[dict[str, str]] = []
+        if image_path and Path(image_path).exists():
+            user_content.append({"type": "image", "image": f"file://{image_path}"})
+        user_content.append({"type": "text", "text": prompt_text})
+        messages.append({"role": "user", "content": user_content})
+
+        text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+
+        if image_path and Path(image_path).exists():
+            from qwen_vl_utils import process_vision_info
+
+            image_inputs, _ = process_vision_info(messages)
+            inputs = processor(
+                text=[text],
+                images=image_inputs or None,
+                padding=True,
+                return_tensors="pt",
+            )
+        else:
+            inputs = processor(text=[text], padding=True, return_tensors="pt")
+
+        inputs = inputs.to(model.device)
+
+        with torch.inference_mode():
+            generated = model.generate(**inputs, max_new_tokens=max_new_tokens)
+
+        generated_trimmed = generated[:, inputs.input_ids.shape[1]:]
+        output_text = processor.batch_decode(generated_trimmed, skip_special_tokens=True)[0]
+        outputs.append(output_text.strip())
+
+        if (i + 1) % 10 == 0:
+            logger.info(
+                "_run_inference progress",
+                extra={"completed": i + 1, "total": len(records)},
+            )
+
+    logger.info(
+        "_run_inference: completed",
+        extra={"n_outputs": len(outputs), "model_path": model_path},
     )
-    return []
+    return outputs
 
 
 def run_eval_trained(
@@ -103,6 +221,7 @@ def run_eval_trained(
 
     gold_set_path: str = benchmark_cfg["gold_set_path"]
     anomaly_set_path: str = benchmark_cfg["anomaly_set_path"]
+    teacher_ref_path: str = benchmark_cfg.get("teacher_reference_path", "")
 
     # 2. Check existence and content
     gold_path_obj = Path(gold_set_path)
@@ -110,6 +229,13 @@ def run_eval_trained(
 
     anomaly_path_obj = Path(anomaly_set_path)
     has_anomaly_set = anomaly_path_obj.exists() and anomaly_path_obj.stat().st_size > 0
+
+    teacher_path_obj = Path(teacher_ref_path) if teacher_ref_path else None
+    has_teacher_references = (
+        teacher_path_obj is not None
+        and teacher_path_obj.exists()
+        and teacher_path_obj.stat().st_size > 0
+    )
 
     if not has_gold_set:
         logger.warning(
@@ -120,6 +246,11 @@ def run_eval_trained(
         logger.warning(
             "Anomaly set not found or empty; skipping anomaly metrics",
             extra={"anomaly_set_path": anomaly_set_path},
+        )
+    if not has_teacher_references:
+        logger.warning(
+            "Teacher references not found or empty; skipping mood/narrative metrics",
+            extra={"teacher_reference_path": teacher_ref_path},
         )
 
     # 3. Run inference (returns [] when gold set absent)
@@ -144,9 +275,6 @@ def run_eval_trained(
     #    references are not yet available, so they are always skipped.
     skipped: list[str] = []
 
-    # Teacher-reference-dependent metrics — skipped until teacher outputs exist.
-    # TODO: Check for teacher reference file and conditionally skip.
-    has_teacher_references = False
     if not has_teacher_references:
         skipped.extend(["mood_spearman", "narrative_bertscore"])
 
