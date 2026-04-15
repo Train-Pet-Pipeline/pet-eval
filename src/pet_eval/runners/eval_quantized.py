@@ -36,10 +36,44 @@ _GOLD_SET_METRICS: list[str] = [
 ]
 
 
+def _collect_eval_images(params: dict[str, Any]) -> list[str]:
+    """Collect image paths for quantized model evaluation.
+
+    Reads from ``eval_images_dir`` in params; falls back to the calibration
+    output directory from pet-quantize.
+
+    Args:
+        params: Full params dict.
+
+    Returns:
+        List of image file paths.
+
+    Raises:
+        FileNotFoundError: If no images are found.
+    """
+    import glob
+    from pathlib import Path
+
+    eval_dir = params.get("inference", {}).get("eval_images_dir", "")
+    if not eval_dir:
+        eval_dir = params.get("calibration", {}).get("output_dir", "artifacts/calibration")
+
+    images = glob.glob(str(Path(eval_dir) / "*.jpg"))
+    images += glob.glob(str(Path(eval_dir) / "*.png"))
+
+    if not images:
+        msg = f"No evaluation images found in {eval_dir}"
+        raise FileNotFoundError(msg)
+
+    return sorted(images)
+
+
 def _run_on_device(model_dir: str, device_id: str, params: dict[str, Any]) -> dict[str, Any]:
     """Run quantized inference on a real hardware device via ADB.
 
-    TODO: Implement ADB-based on-device inference for RK3576.
+    Delegates to ``pet_quantize.inference.run_quantized_pipeline`` with the
+    device_id set, enabling RKNN/RKLLM on-device execution and latency
+    measurement.
 
     Args:
         model_dir: Path to the quantized model directory.
@@ -50,17 +84,27 @@ def _run_on_device(model_dir: str, device_id: str, params: dict[str, Any]) -> di
         Dict with keys ``"outputs"`` (list[str]), ``"timings"`` (list[float]),
         and ``"fp16_outputs"`` (list).
     """
-    logger.warning(
-        "_run_on_device: not yet implemented; returning empty results",
+    from pet_quantize.inference import run_quantized_pipeline
+
+    image_paths = _collect_eval_images(params)
+    logger.info(
+        "_run_on_device: running on %d images",
+        len(image_paths),
         extra={"model_dir": model_dir, "device_id": device_id},
     )
-    return {"outputs": [], "timings": [], "fp16_outputs": []}
+    return run_quantized_pipeline(
+        model_dir=model_dir,
+        image_paths=image_paths,
+        device_id=device_id,
+        params_path="params.yaml",
+    )
 
 
 def _run_simulated(model_dir: str, params: dict[str, Any]) -> dict[str, Any]:
     """Run quantized inference in simulation mode (no hardware required).
 
-    TODO: Implement CPU/GPU-based simulation of quantized model inference.
+    Delegates to ``pet_quantize.inference.run_quantized_pipeline`` with
+    device_id=None, using the RKNN PC simulator.
 
     Args:
         model_dir: Path to the quantized model directory.
@@ -70,11 +114,20 @@ def _run_simulated(model_dir: str, params: dict[str, Any]) -> dict[str, Any]:
         Dict with keys ``"outputs"`` (list[str]), ``"timings"`` (list[float]),
         and ``"fp16_outputs"`` (list).
     """
-    logger.warning(
-        "_run_simulated: not yet implemented; returning empty results",
+    from pet_quantize.inference import run_quantized_pipeline
+
+    image_paths = _collect_eval_images(params)
+    logger.info(
+        "_run_simulated: running on %d images",
+        len(image_paths),
         extra={"model_dir": model_dir},
     )
-    return {"outputs": [], "timings": [], "fp16_outputs": []}
+    return run_quantized_pipeline(
+        model_dir=model_dir,
+        image_paths=image_paths,
+        device_id=None,
+        params_path="params.yaml",
+    )
 
 
 def _run_quantized_inference(
