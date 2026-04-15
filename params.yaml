@@ -25,6 +25,7 @@ inference:
   schema_version: "1.0"
   max_new_tokens: 1024
   batch_size: 1
+  eval_images_dir: ""  # path to images for quantized eval; falls back to calibration output
 
 audio:
   classes:
