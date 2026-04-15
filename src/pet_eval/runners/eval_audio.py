@@ -12,6 +12,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import torch
+import torchaudio
 import yaml
 
 from pet_eval.gate.checker import check_gate
@@ -22,6 +24,8 @@ from pet_eval.report.generate_report import generate_report
 
 logger = logging.getLogger(__name__)
 
+AUDIO_EXTENSIONS = {".wav", ".mp3", ".flac", ".ogg"}
+
 
 def _run_audio_inference(
     model_path: str,
@@ -29,13 +33,14 @@ def _run_audio_inference(
 ) -> tuple[list[str], list[str]]:
     """Run audio CNN inference over the test directory and return (predicted, actual).
 
-    Checks whether the configured ``benchmark.audio_test_dir`` exists and is
-    non-empty.  If it does not exist or is empty, returns two empty lists so
-    that the caller can skip metric computation gracefully.
+    Loads the trained MobileNetV2AudioSet model from *model_path*, iterates
+    over ``benchmark.audio_test_dir/{class_name}/*.wav`` and runs inference on
+    each file.  The ground-truth label is derived from the subdirectory name.
 
     Args:
         model_path: Path to the trained audio CNN checkpoint file.
-        params: Full params dict, used to look up ``benchmark.audio_test_dir``.
+        params: Full params dict, used to look up ``benchmark.audio_test_dir``
+            and ``audio.classes``.
 
     Returns:
         A tuple ``(predicted, actual)`` of parallel string label lists.
@@ -58,12 +63,72 @@ def _run_audio_inference(
         )
         return ([], [])
 
-    # TODO: Actual audio inference depends on CNN model loading and audio I/O.
-    logger.warning(
-        "Audio model inference not yet implemented",
-        extra={"model_path": model_path, "audio_test_dir": audio_test_dir},
+    classes: list[str] = params.get("audio", {}).get("classes", [])
+    sample_rate: int = params.get("audio", {}).get("sample_rate", 16000)
+    max_duration_sec: float = params.get("audio", {}).get("max_duration_sec", 5.0)
+    max_samples = int(sample_rate * max_duration_sec)
+
+    if not classes:
+        logger.error("audio.classes not configured in params")
+        return ([], [])
+
+    # Load model
+    from pet_train.audio_model_arch import MobileNetV2AudioSet
+
+    model = MobileNetV2AudioSet(num_classes=len(classes), sample_rate=sample_rate)
+    state_dict = torch.load(model_path, map_location="cpu", weights_only=True)
+    model.load_state_dict(state_dict)
+    model.eval()
+
+    # Determine device
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
+    model = model.to(device)
+
+    predicted: list[str] = []
+    actual: list[str] = []
+
+    for cls_name in classes:
+        cls_dir = test_dir_path / cls_name
+        if not cls_dir.exists():
+            continue
+        for audio_file in sorted(cls_dir.iterdir()):
+            if audio_file.suffix.lower() not in AUDIO_EXTENSIONS:
+                continue
+            try:
+                waveform, sr = torchaudio.load(str(audio_file))
+                if sr != sample_rate:
+                    waveform = torchaudio.functional.resample(waveform, sr, sample_rate)
+                if waveform.shape[0] > 1:
+                    waveform = waveform.mean(dim=0, keepdim=True)
+                if waveform.shape[1] > max_samples:
+                    waveform = waveform[:, :max_samples]
+                elif waveform.shape[1] < max_samples:
+                    pad = max_samples - waveform.shape[1]
+                    waveform = torch.nn.functional.pad(waveform, (0, pad))
+
+                waveform = waveform.squeeze(0).unsqueeze(0).to(device)  # [1, samples]
+                with torch.no_grad():
+                    logits = model(waveform)
+                pred_idx = logits.argmax(dim=1).item()
+                predicted.append(classes[pred_idx])
+                actual.append(cls_name)
+            except Exception:
+                logger.warning(
+                    "Failed to process audio file",
+                    extra={"file": str(audio_file)},
+                    exc_info=True,
+                )
+
+    logger.info(
+        "Audio inference complete",
+        extra={"n_samples": len(predicted), "model_path": model_path},
     )
-    return ([], [])
+    return (predicted, actual)
 
 
 def run_eval_audio(

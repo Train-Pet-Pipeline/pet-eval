@@ -147,3 +147,7 @@ def main() -> None:
             extra={"passed": result.passed, "summary": result.summary},
         )
         sys.exit(0 if result.passed else 1)
+
+
+if __name__ == "__main__":
+    main()
