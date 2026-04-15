@@ -1,0 +1,40 @@
+gates:
+  vlm:
+    schema_compliance: 0.99
+    distribution_sum_error: 0.01
+    anomaly_recall: 0.85
+    anomaly_false_positive: 0.15
+    mood_spearman: 0.75
+    narrative_bertscore: 0.80
+    latency_p95_ms: 4000
+    kl_divergence: 0.02
+  audio:
+    overall_accuracy: 0.80
+    vomit_recall: 0.70
+
+benchmark:
+  gold_set_path: "benchmark/gold_set_v1.jsonl"
+  anomaly_set_path: "benchmark/anomaly_set_v1.jsonl"
+  audio_test_dir: ""
+
+wandb:
+  project: "pet-eval"
+  entity: ""
+
+inference:
+  schema_version: "1.0"
+  max_new_tokens: 1024
+  batch_size: 1
+
+audio:
+  classes:
+    - "eating"
+    - "drinking"
+    - "vomiting"
+    - "ambient"
+    - "other"
+
+device:
+  adb_timeout: 30
+  warmup_runs: 3
+  latency_runs: 50
