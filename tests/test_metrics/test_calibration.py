@@ -6,7 +6,6 @@ import pytest
 from pet_eval.metrics.calibration import compute_ece
 from pet_eval.metrics.types import MetricResult
 
-
 # ---------------------------------------------------------------------------
 # Test 1: perfectly calibrated model → valid MetricResult, threshold=None, passed=True
 # ---------------------------------------------------------------------------

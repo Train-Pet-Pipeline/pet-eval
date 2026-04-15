@@ -56,7 +56,7 @@ def compute_mood_correlation(
             details={"per_dimension": per_dimension},
         )
 
-    per_dimension: dict[str, float] = {}
+    per_dimension = {}
     for dim in MOOD_DIMENSIONS:
         model_vals = [entry[dim] for entry in model_moods]
         teacher_vals = [entry[dim] for entry in teacher_moods]
