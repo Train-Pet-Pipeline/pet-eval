@@ -9,13 +9,19 @@ from pet_eval.metrics.narrative_quality import compute_narrative_quality
 from pet_eval.metrics.schema_compliance import compute_schema_compliance
 from pet_eval.metrics.types import MetricResult
 
+# Aliases for public API consistency
+compute_calibration_ece = compute_ece
+compute_latency_stats = compute_latency
+
 __all__ = [
     "MetricResult",
     "compute_anomaly_recall",
     "compute_audio_accuracy",
+    "compute_calibration_ece",
     "compute_ece",
     "compute_kl_divergence",
     "compute_latency",
+    "compute_latency_stats",
     "compute_mood_correlation",
     "compute_narrative_quality",
     "compute_schema_compliance",

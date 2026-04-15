@@ -44,5 +44,16 @@ python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 
+[[tool.mypy.overrides]]
+module = [
+    "pet_schema",
+    "pet_schema.*",
+    "bert_score",
+    "bert_score.*",
+    "scipy",
+    "scipy.*",
+]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
