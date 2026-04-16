@@ -32,6 +32,7 @@ inference:
   retry_on_failure: true        # 输出不合规时用更高 temperature 重试一次
   retry_temperature: 0.7
   constrained_decoding: false   # 启用后使用 outlines 库进行 JSON Schema 约束采样
+  prompt_source: "pet_schema"   # "gold_set": 用 gold_set 自带 prompt; "pet_schema": 用 pet_schema 标准短 prompt
   eval_images_dir: ""  # path to images for quantized eval; falls back to calibration output
 
 audio:

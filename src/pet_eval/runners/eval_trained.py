@@ -239,6 +239,24 @@ def _generate_one(
     return output_text.strip()
 
 
+def _load_standard_prompts(schema_version: str = "1.0") -> tuple[str, str]:
+    """Load standard system and user prompts from pet_schema package.
+
+    Uses ``pet_schema.render_prompt`` — the single source of truth for prompt
+    content — ensuring eval inference is aligned with training data.
+
+    Args:
+        schema_version: Schema version string passed to render_prompt.
+
+    Returns:
+        Tuple of (system_prompt, user_prompt).
+    """
+    import pet_schema
+
+    system_prompt, user_prompt = pet_schema.render_prompt(schema_version)
+    return system_prompt, user_prompt
+
+
 def _run_inference(
     model_path: str,
     gold_set_path: str | None,
@@ -248,6 +266,14 @@ def _run_inference(
 
     Loads the model with LoRA adapter merged, processes each gold set record
     (image + prompt), and returns the model's raw JSON output strings.
+
+    Prompt source is configurable via ``inference.prompt_source`` in params:
+      - ``"gold_set"`` (default): use prompts from each gold set record
+      - ``"pet_schema"``: use standard prompts from pet_schema package
+
+    Choose ``"pet_schema"`` when training data was built with the short prompt
+    from pet_schema (e.g. sft_v3+), or ``"gold_set"`` for models trained with
+    the full schema prompt embedded in gold set records (e.g. sft_v2).
 
     Supports configurable sampling parameters (temperature, top_p) and an
     optional retry-with-fallback mechanism: when ``retry_on_failure`` is true
@@ -289,6 +315,17 @@ def _run_inference(
 
     generate_kwargs = _build_generate_kwargs(inference_cfg)
 
+    # Determine prompt source: "gold_set" (default) or "pet_schema"
+    prompt_source = inference_cfg.get("prompt_source", "gold_set")
+    schema_system: str | None = None
+    schema_user: str | None = None
+    if prompt_source == "pet_schema":
+        schema_system, schema_user = _load_standard_prompts()
+        logger.info(
+            "_run_inference: using pet_schema prompts",
+            extra={"system_len": len(schema_system), "user_prompt": schema_user},
+        )
+
     model, processor = _load_model(model_path, params)
     outputs: list[str] = []
     n_retries = 0
@@ -299,8 +336,13 @@ def _run_inference(
             "image",
             record.get("images", [""])[0] if record.get("images") else "",
         )
-        prompt_text = record.get("prompt", record.get("instruction", ""))
-        system_text = record.get("system", "")
+
+        if prompt_source == "pet_schema":
+            system_text = schema_system or ""
+            prompt_text = schema_user or ""
+        else:
+            prompt_text = record.get("prompt", record.get("instruction", ""))
+            system_text = record.get("system", "")
 
         messages: list[dict[str, Any]] = []
         if system_text:
