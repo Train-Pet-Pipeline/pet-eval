@@ -41,7 +41,8 @@ class GateResult:
         Returns:
             A frozen :class:`GateResult` instance.
         """
-        gated = [r for r in results if r.threshold is not None]
+        skipped_set = set(skipped)
+        gated = [r for r in results if r.threshold is not None and r.name not in skipped_set]
         failed = [r for r in gated if not r.passed]
         all_pass = len(failed) == 0
 

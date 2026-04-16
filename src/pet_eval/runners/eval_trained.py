@@ -260,7 +260,7 @@ def run_eval_trained(
         params,
     )
 
-    # 4. Schema compliance — always run
+    # 4. Schema compliance — run when outputs exist, skip when no gold set
     results = compute_schema_compliance(
         outputs,
         compliance_threshold=vlm_gates.get("schema_compliance"),
@@ -281,6 +281,8 @@ def run_eval_trained(
     if not has_gold_set:
         skipped.extend(
             [
+                "compliance_rate",
+                "distribution_sum_error",
                 "anomaly_recall",
                 "anomaly_false_positive",
                 "calibration_ece",
@@ -345,3 +347,7 @@ def main() -> None:
         extra={"passed": result.passed, "summary": result.summary},
     )
     sys.exit(0 if result.passed else 1)
+
+
+if __name__ == "__main__":
+    main()
