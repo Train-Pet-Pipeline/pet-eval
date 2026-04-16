@@ -130,12 +130,11 @@ def _load_model(model_path: str, params: dict[str, Any]) -> tuple[Any, Any]:
     # Detect VLM models that need specialized loader instead of AutoModelForCausalLM
     config = AutoConfig.from_pretrained(base_model_name, trust_remote_code=True)
     model_type = getattr(config, "model_type", "")
+    model_cls: Any = AutoModelForCausalLM
     if model_type in ("qwen2_vl", "qwen2-vl"):
         from transformers import Qwen2VLForConditionalGeneration
 
         model_cls = Qwen2VLForConditionalGeneration
-    else:
-        model_cls = AutoModelForCausalLM
 
     base_model = model_cls.from_pretrained(
         base_model_name,
