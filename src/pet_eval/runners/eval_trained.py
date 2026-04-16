@@ -41,7 +41,7 @@ def _load_model(model_path: str, params: dict[str, Any]) -> tuple[Any, Any]:
     """
     import torch
     from peft import PeftModel
-    from transformers import AutoModelForCausalLM, AutoProcessor
+    from transformers import AutoConfig, AutoModelForCausalLM, AutoProcessor
 
     adapter_dir = Path(model_path)
     adapter_config_path = adapter_dir / "adapter_config.json"
@@ -66,7 +66,17 @@ def _load_model(model_path: str, params: dict[str, Any]) -> tuple[Any, Any]:
 
     dtype = torch.bfloat16 if device == "cuda" else torch.float32
     processor = AutoProcessor.from_pretrained(base_model_name, trust_remote_code=True)
-    base_model = AutoModelForCausalLM.from_pretrained(
+
+    # Detect VLM models that need specialized loader instead of AutoModelForCausalLM
+    config = AutoConfig.from_pretrained(base_model_name, trust_remote_code=True)
+    model_type = getattr(config, "model_type", "")
+    if model_type in ("qwen2_vl", "qwen2-vl"):
+        from transformers import Qwen2VLForConditionalGeneration
+        model_cls = Qwen2VLForConditionalGeneration
+    else:
+        model_cls = AutoModelForCausalLM
+
+    base_model = model_cls.from_pretrained(
         base_model_name,
         torch_dtype=dtype,
         trust_remote_code=True,
@@ -210,6 +220,7 @@ def run_eval_trained(
         A frozen :class:`GateResult` instance.
     """
     # 1. Load params
+    params_dir = Path(params_path).resolve().parent
     with open(params_path) as fh:
         params: dict[str, Any] = yaml.safe_load(fh)
 
@@ -219,9 +230,16 @@ def run_eval_trained(
     inference_cfg: dict[str, Any] = params.get("inference", {})
     schema_version: str = str(inference_cfg.get("schema_version", "1.0"))
 
-    gold_set_path: str = benchmark_cfg["gold_set_path"]
-    anomaly_set_path: str = benchmark_cfg["anomaly_set_path"]
-    teacher_ref_path: str = benchmark_cfg.get("teacher_reference_path", "")
+    def _resolve(p: str) -> str:
+        """Resolve path relative to params.yaml directory."""
+        path = Path(p)
+        if not path.is_absolute():
+            path = params_dir / path
+        return str(path)
+
+    gold_set_path: str = _resolve(benchmark_cfg["gold_set_path"])
+    anomaly_set_path: str = _resolve(benchmark_cfg["anomaly_set_path"])
+    teacher_ref_path: str = _resolve(benchmark_cfg.get("teacher_reference_path", "")) if benchmark_cfg.get("teacher_reference_path") else ""
 
     # 2. Check existence and content
     gold_path_obj = Path(gold_set_path)
