@@ -13,8 +13,9 @@ gates:
     vomit_recall: 0.70
 
 benchmark:
-  gold_set_path: "benchmark/gold_set_v1.jsonl"
+  gold_set_path: "benchmark/gold_set_v2.jsonl"
   anomaly_set_path: "benchmark/anomaly_set_v1.jsonl"
+  teacher_reference_path: "benchmark/teacher_references_v1.jsonl"
   audio_test_dir: ""
 
 wandb:
@@ -25,6 +26,12 @@ inference:
   schema_version: "1.0"
   max_new_tokens: 1024
   batch_size: 1
+  temperature: 0.1
+  top_p: 0.9
+  do_sample: true
+  retry_on_failure: true        # 输出不合规时用更高 temperature 重试一次
+  retry_temperature: 0.7
+  constrained_decoding: false   # 启用后使用 outlines 库进行 JSON Schema 约束采样
   eval_images_dir: ""  # path to images for quantized eval; falls back to calibration output
 
 audio:
