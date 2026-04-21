@@ -11,6 +11,8 @@ on:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+    env:
+      PET_ALLOW_MISSING_SDK: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -25,23 +27,26 @@ jobs:
       - name: Install system deps
         run: sudo apt-get update && sudo apt-get install -y libsndfile1
 
-      - name: Install pet-infra (peer-dep, per compatibility_matrix 2026.07-rc)
-        run: pip install 'pet-infra @ git+https://github.com/Train-Pet-Pipeline/pet-infra@v2.3.0-rc1'
+      - name: Step 1 — install pet-infra (peer-dep, matrix 2026.08-rc)
+        run: pip install 'pet-infra @ git+https://github.com/Train-Pet-Pipeline/pet-infra@v2.4.0-rc1'
 
-      - name: Install pet-train (cross-repo runtime for AudioEvaluator, matrix 2026.07-rc)
+      - name: Step 2 — install pet-train (cross-repo runtime for AudioEvaluator, matrix 2026.08-rc)
         run: pip install 'pet-train @ git+https://github.com/Train-Pet-Pipeline/pet-train@v2.0.0-rc1'
 
-      - name: Install pet-eval (editable, no-deps over peer-deps)
+      - name: Step 3 — install pet-quantize (cross-repo runtime for QuantizedVlmEvaluator, matrix 2026.08-rc)
+        run: pip install 'pet-quantize @ git+https://github.com/Train-Pet-Pipeline/pet-quantize@v2.0.0-rc1'
+
+      - name: Step 4 — install pet-eval (editable, no-deps over peer-deps)
         run: pip install -e ".[dev]" --no-deps
 
-      - name: Re-resolve remaining deps
+      - name: Step 5 — re-resolve remaining deps
         run: pip install -e ".[dev]"
 
-      - name: Assert pet-infra version (peer-dep guard per DEVELOPMENT_GUIDE §11.4)
-        run: python -c "import pet_infra; assert pet_infra.__version__.startswith('2.'), f'unexpected pet_infra version {pet_infra.__version__}'"
-
-      - name: Assert pet-train available (cross-repo peer-dep for AudioEvaluator)
-        run: python -c "import pet_train; import pet_train.audio.inference"
+      - name: Step 6 — assert peer-dep versions (§11.4)
+        run: |
+          python -c "import pet_infra; assert pet_infra.__version__.startswith('2.'), f'unexpected pet_infra version {pet_infra.__version__}'"
+          python -c "import pet_train; import pet_train.audio.inference"
+          python -c "import pet_quantize; assert pet_quantize.__version__.startswith('2.'), f'unexpected pet_quantize version {pet_quantize.__version__}'"
 
       - name: Lint
         run: ruff check src/ tests/ && mypy src/

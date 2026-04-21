@@ -11,6 +11,7 @@ requires-python = ">=3.11,<3.12"
 dependencies = [
     "pet-schema",
     "pet-train",  # cross-repo runtime: AudioEvaluator uses pet_train.audio.inference (spec §5.3)
+    "pet-quantize",  # cross-repo runtime: QuantizedVlmEvaluator uses pet_quantize.inference.rkllm_runner (spec §5.4)
     "torch>=2.1",
     "transformers>=4.37",
     "torchaudio>=2.1",
