@@ -11,8 +11,9 @@ import logging
 
 import torch
 import torch.nn.functional as functional
+from pet_infra.registry import METRICS
 
-from pet_eval.metrics.types import MetricResult
+from pet_eval.plugins.metrics.types import MetricResult
 
 logger = logging.getLogger(__name__)
 
@@ -89,3 +90,19 @@ def compute_kl_divergence(
         operator="lte",
         details={"per_sample_kl": per_sample_kl, "n_samples": len(per_sample_kl)},
     )
+
+
+# ---- Registry adapter (P2-B) ----
+
+
+@METRICS.register_module(name="kl_quantization")
+class KLQuantizationMetric:
+    """Registry adapter wrapping compute_kl_divergence."""
+
+    def __init__(self, **kwargs) -> None:
+        """Store kwargs to forward to compute_kl_divergence."""
+        self._kwargs = kwargs
+
+    def __call__(self, *args, **call_kwargs) -> MetricResult:
+        """Delegate to compute_kl_divergence with merged kwargs."""
+        return compute_kl_divergence(*args, **{**self._kwargs, **call_kwargs})

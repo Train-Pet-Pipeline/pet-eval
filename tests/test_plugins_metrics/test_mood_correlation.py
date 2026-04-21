@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from pet_eval.metrics.mood_correlation import compute_mood_correlation
-from pet_eval.metrics.types import MetricResult
+from pet_eval.plugins.metrics.mood_correlation import compute_mood_correlation
+from pet_eval.plugins.metrics.types import MetricResult
 
 # ---------------------------------------------------------------------------
 # Test 1: perfect correlation — identical dicts → value >= 0.0

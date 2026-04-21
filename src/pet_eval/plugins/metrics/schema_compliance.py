@@ -12,8 +12,9 @@ import json
 import logging
 
 import pet_schema
+from pet_infra.registry import METRICS
 
-from pet_eval.metrics.types import MetricResult
+from pet_eval.plugins.metrics.types import MetricResult
 
 logger = logging.getLogger(__name__)
 
@@ -159,3 +160,19 @@ def compute_schema_compliance(
             details={"n_outputs": len(outputs)},
         ),
     ]
+
+
+# ---- Registry adapter (P2-B) ----
+
+
+@METRICS.register_module(name="schema_compliance")
+class SchemaComplianceMetric:
+    """Registry adapter wrapping compute_schema_compliance."""
+
+    def __init__(self, **kwargs) -> None:
+        """Store kwargs to forward to compute_schema_compliance."""
+        self._kwargs = kwargs
+
+    def __call__(self, *args, **call_kwargs) -> list[MetricResult]:
+        """Delegate to compute_schema_compliance with merged kwargs."""
+        return compute_schema_compliance(*args, **{**self._kwargs, **call_kwargs})

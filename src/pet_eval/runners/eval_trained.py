@@ -23,7 +23,7 @@ from pet_infra.logging import setup_logging
 
 from pet_eval.gate.checker import check_gate
 from pet_eval.gate.types import GateResult
-from pet_eval.metrics.schema_compliance import compute_schema_compliance
+from pet_eval.plugins.metrics.schema_compliance import compute_schema_compliance
 from pet_eval.report.generate_report import generate_report
 
 logger = logging.getLogger(__name__)

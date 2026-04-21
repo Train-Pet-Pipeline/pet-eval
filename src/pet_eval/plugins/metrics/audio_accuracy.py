@@ -10,7 +10,9 @@ from __future__ import annotations
 import logging
 from collections import Counter
 
-from pet_eval.metrics.types import MetricResult
+from pet_infra.registry import METRICS
+
+from pet_eval.plugins.metrics.types import MetricResult
 
 logger = logging.getLogger(__name__)
 
@@ -137,3 +139,19 @@ def compute_audio_accuracy(
     )
 
     return [acc_result, vomit_result]
+
+
+# ---- Registry adapter (P2-B) ----
+
+
+@METRICS.register_module(name="audio_accuracy")
+class AudioAccuracyMetric:
+    """Registry adapter wrapping compute_audio_accuracy."""
+
+    def __init__(self, **kwargs) -> None:
+        """Store kwargs to forward to compute_audio_accuracy."""
+        self._kwargs = kwargs
+
+    def __call__(self, *args, **call_kwargs) -> list[MetricResult]:
+        """Delegate to compute_audio_accuracy with merged kwargs."""
+        return compute_audio_accuracy(*args, **{**self._kwargs, **call_kwargs})

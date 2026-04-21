@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from pet_eval.metrics.anomaly_recall import compute_anomaly_recall
-from pet_eval.metrics.types import MetricResult
+from pet_eval.plugins.metrics.anomaly_recall import compute_anomaly_recall
+from pet_eval.plugins.metrics.types import MetricResult
 
 # ---------------------------------------------------------------------------
 # Test 1: perfect recall — all predictions correct → recall=1.0, fpr=0.0

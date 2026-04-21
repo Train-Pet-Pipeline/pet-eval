@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import logging
 
-from pet_eval.metrics.types import MetricResult
+from pet_infra.registry import METRICS
+
+from pet_eval.plugins.metrics.types import MetricResult
 
 logger = logging.getLogger(__name__)
 
@@ -91,3 +93,19 @@ def compute_anomaly_recall(
     )
 
     return [recall_result, fpr_result]
+
+
+# ---- Registry adapter (P2-B) ----
+
+
+@METRICS.register_module(name="anomaly_recall")
+class AnomalyRecallMetric:
+    """Registry adapter wrapping compute_anomaly_recall."""
+
+    def __init__(self, **kwargs) -> None:
+        """Store kwargs to forward to compute_anomaly_recall."""
+        self._kwargs = kwargs
+
+    def __call__(self, *args, **call_kwargs) -> list[MetricResult]:
+        """Delegate to compute_anomaly_recall with merged kwargs."""
+        return compute_anomaly_recall(*args, **{**self._kwargs, **call_kwargs})

@@ -11,7 +11,9 @@ from __future__ import annotations
 import logging
 import statistics
 
-from pet_eval.metrics.types import MetricResult
+from pet_infra.registry import METRICS
+
+from pet_eval.plugins.metrics.types import MetricResult
 
 logger = logging.getLogger(__name__)
 
@@ -108,3 +110,19 @@ def compute_latency(
             "n_samples": len(sorted_data),
         },
     )
+
+
+# ---- Registry adapter (P2-B) ----
+
+
+@METRICS.register_module(name="latency")
+class LatencyMetric:
+    """Registry adapter wrapping compute_latency."""
+
+    def __init__(self, **kwargs) -> None:
+        """Store kwargs to forward to compute_latency."""
+        self._kwargs = kwargs
+
+    def __call__(self, *args, **call_kwargs) -> MetricResult:
+        """Delegate to compute_latency with merged kwargs."""
+        return compute_latency(*args, **{**self._kwargs, **call_kwargs})

@@ -11,7 +11,7 @@ import logging
 from typing import Any
 
 from pet_eval.gate.types import GateResult
-from pet_eval.metrics.types import MetricResult
+from pet_eval.plugins.metrics.types import MetricResult
 
 logger = logging.getLogger(__name__)
 
