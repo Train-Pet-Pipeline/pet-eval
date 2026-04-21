@@ -21,7 +21,7 @@ from pet_infra.logging import setup_logging
 
 from pet_eval.gate.checker import check_gate
 from pet_eval.gate.types import GateResult
-from pet_eval.metrics.audio_accuracy import compute_audio_accuracy
+from pet_eval.plugins.metrics.audio_accuracy import compute_audio_accuracy
 from pet_eval.report.generate_report import generate_report
 
 logger = logging.getLogger(__name__)

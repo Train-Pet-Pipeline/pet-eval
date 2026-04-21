@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from pet_eval.metrics.latency import compute_latency
-from pet_eval.metrics.types import MetricResult
+from pet_eval.plugins.metrics.latency import compute_latency
+from pet_eval.plugins.metrics.types import MetricResult
 
 # ---------------------------------------------------------------------------
 # Test 1: normal distribution of 100 timings → P95 between 2900 and 3000 ms

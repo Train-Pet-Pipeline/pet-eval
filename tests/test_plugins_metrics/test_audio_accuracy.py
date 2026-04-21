@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from pet_eval.metrics.audio_accuracy import compute_audio_accuracy
-from pet_eval.metrics.types import MetricResult
+from pet_eval.plugins.metrics.audio_accuracy import compute_audio_accuracy
+from pet_eval.plugins.metrics.types import MetricResult
 
 # ---------------------------------------------------------------------------
 # Test 1: perfect accuracy — all predictions correct → accuracy=1.0

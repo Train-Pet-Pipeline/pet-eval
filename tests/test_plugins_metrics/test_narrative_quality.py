@@ -7,15 +7,15 @@ from unittest.mock import patch
 import pytest
 import torch
 
-from pet_eval.metrics.narrative_quality import compute_narrative_quality
-from pet_eval.metrics.types import MetricResult
+from pet_eval.plugins.metrics.narrative_quality import compute_narrative_quality
+from pet_eval.plugins.metrics.types import MetricResult
 
 # ---------------------------------------------------------------------------
 # Test 1: high similarity — mock returns 0.95 → value > 0.9
 # ---------------------------------------------------------------------------
 
 
-@patch("pet_eval.metrics.narrative_quality.bert_score.score")
+@patch("pet_eval.plugins.metrics.narrative_quality.bert_score.score")
 def test_high_similarity(mock_score) -> None:
     """Mock bert_score returning 0.95 → mean F1 > 0.9."""
     mock_score.return_value = (
@@ -39,7 +39,7 @@ def test_high_similarity(mock_score) -> None:
 # ---------------------------------------------------------------------------
 
 
-@patch("pet_eval.metrics.narrative_quality.bert_score.score")
+@patch("pet_eval.plugins.metrics.narrative_quality.bert_score.score")
 def test_low_similarity(mock_score) -> None:
     """Mock bert_score returning 0.30 → mean F1 < 0.5."""
     mock_score.return_value = (
@@ -61,7 +61,7 @@ def test_low_similarity(mock_score) -> None:
 # ---------------------------------------------------------------------------
 
 
-@patch("pet_eval.metrics.narrative_quality.bert_score.score")
+@patch("pet_eval.plugins.metrics.narrative_quality.bert_score.score")
 def test_multiple_samples(mock_score) -> None:
     """Mock bert_score returning [0.90, 0.80] → mean F1 ≈ 0.85."""
     mock_score.return_value = (
@@ -97,7 +97,7 @@ def test_empty_inputs() -> None:
 # ---------------------------------------------------------------------------
 
 
-@patch("pet_eval.metrics.narrative_quality.bert_score.score")
+@patch("pet_eval.plugins.metrics.narrative_quality.bert_score.score")
 def test_threshold_forwarded(mock_score) -> None:
     """threshold=0.80 is preserved in the returned MetricResult."""
     mock_score.return_value = (

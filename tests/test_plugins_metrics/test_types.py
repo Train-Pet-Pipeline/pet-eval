@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pet_eval.metrics.types import MetricResult
+from pet_eval.plugins.metrics.types import MetricResult
 
 
 def test_gated_metric_pass() -> None:

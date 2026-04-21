@@ -6,8 +6,8 @@ import json
 
 import pytest
 
-from pet_eval.metrics.schema_compliance import compute_schema_compliance
-from pet_eval.metrics.types import MetricResult
+from pet_eval.plugins.metrics.schema_compliance import compute_schema_compliance
+from pet_eval.plugins.metrics.types import MetricResult
 
 # ---------------------------------------------------------------------------
 # Helpers

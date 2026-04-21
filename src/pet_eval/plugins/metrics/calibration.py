@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import logging
 
-from pet_eval.metrics.types import MetricResult
+from pet_infra.registry import METRICS
+
+from pet_eval.plugins.metrics.types import MetricResult
 
 logger = logging.getLogger(__name__)
 
@@ -106,3 +108,19 @@ def compute_ece(
         threshold=None,
         details={"bins": bins_details},
     )
+
+
+# ---- Registry adapter (P2-B) ----
+
+
+@METRICS.register_module(name="calibration")
+class CalibrationMetric:
+    """Registry adapter wrapping compute_ece."""
+
+    def __init__(self, **kwargs) -> None:
+        """Store kwargs to forward to compute_ece."""
+        self._kwargs = kwargs
+
+    def __call__(self, *args, **call_kwargs) -> MetricResult:
+        """Delegate to compute_ece with merged kwargs."""
+        return compute_ece(*args, **{**self._kwargs, **call_kwargs})

@@ -9,8 +9,9 @@ from __future__ import annotations
 import logging
 
 import bert_score
+from pet_infra.registry import METRICS
 
-from pet_eval.metrics.types import MetricResult
+from pet_eval.plugins.metrics.types import MetricResult
 
 logger = logging.getLogger(__name__)
 
@@ -84,3 +85,19 @@ def compute_narrative_quality(
             "per_sample_f1": per_sample_f1,
         },
     )
+
+
+# ---- Registry adapter (P2-B) ----
+
+
+@METRICS.register_module(name="narrative_quality")
+class NarrativeQualityMetric:
+    """Registry adapter wrapping compute_narrative_quality."""
+
+    def __init__(self, **kwargs) -> None:
+        """Store kwargs to forward to compute_narrative_quality."""
+        self._kwargs = kwargs
+
+    def __call__(self, *args, **call_kwargs) -> MetricResult:
+        """Delegate to compute_narrative_quality with merged kwargs."""
+        return compute_narrative_quality(*args, **{**self._kwargs, **call_kwargs})

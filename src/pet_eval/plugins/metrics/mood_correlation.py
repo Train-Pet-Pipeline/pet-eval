@@ -9,9 +9,10 @@ from __future__ import annotations
 import logging
 import math
 
+from pet_infra.registry import METRICS
 from scipy.stats import spearmanr
 
-from pet_eval.metrics.types import MetricResult
+from pet_eval.plugins.metrics.types import MetricResult
 
 logger = logging.getLogger(__name__)
 
@@ -85,3 +86,19 @@ def compute_mood_correlation(
         operator="gte",
         details={"per_dimension": per_dimension},
     )
+
+
+# ---- Registry adapter (P2-B) ----
+
+
+@METRICS.register_module(name="mood_correlation")
+class MoodCorrelationMetric:
+    """Registry adapter wrapping compute_mood_correlation."""
+
+    def __init__(self, **kwargs) -> None:
+        """Store kwargs to forward to compute_mood_correlation."""
+        self._kwargs = kwargs
+
+    def __call__(self, *args, **call_kwargs) -> MetricResult:
+        """Delegate to compute_mood_correlation with merged kwargs."""
+        return compute_mood_correlation(*args, **{**self._kwargs, **call_kwargs})

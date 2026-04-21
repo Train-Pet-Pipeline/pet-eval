@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 import torch
 
-from pet_eval.metrics.kl_quantization import compute_kl_divergence
-from pet_eval.metrics.types import MetricResult
+from pet_eval.plugins.metrics.kl_quantization import compute_kl_divergence
+from pet_eval.plugins.metrics.types import MetricResult
 
 # ---------------------------------------------------------------------------
 # Test 1: identical distributions → KL < 0.001
