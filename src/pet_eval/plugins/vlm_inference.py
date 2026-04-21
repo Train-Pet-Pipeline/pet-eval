@@ -1,32 +1,34 @@
-"""VLM eval_trained runner for pet-eval.
+"""VLM inference helpers for pet-eval evaluator plugins (Phase 3A).
 
-Evaluates a trained VLM checkpoint against the benchmark gold set and anomaly
-set, computes schema compliance, gates the result, and publishes a W&B report.
+Extracted from runners/eval_trained.py so that VLMEvaluator and future
+plugins can reuse the inference primitives without pulling in the v1 runner.
 
-Supports:
-  - Configurable sampling parameters (temperature, top_p)
-  - Retry with higher temperature on schema validation failure
-  - Optional constrained decoding via ``outlines`` library
+Public API (used by plugins):
+  - run_inference(model_path, gold_set_path, params) -> list[str]
+  - validate_output(raw, schema_version) -> bool
+  - _FALLBACK_OUTPUT constant
+
+Internal helpers (module-private, used by run_inference):
+  - _load_model
+  - _load_standard_prompts
+  - _build_generate_kwargs
+  - _generate_one
 """
 
 from __future__ import annotations
 
-import argparse
 import json
 import logging
-import sys
 from pathlib import Path
 from typing import Any
 
-import yaml
-from pet_infra.logging import setup_logging
-
-from pet_eval.gate.checker import check_gate
-from pet_eval.gate.types import GateResult
-from pet_eval.plugins.metrics.schema_compliance import compute_schema_compliance
-from pet_eval.report.generate_report import generate_report
-
 logger = logging.getLogger(__name__)
+
+__all__ = [
+    "run_inference",
+    "validate_output",
+    "_FALLBACK_OUTPUT",
+]
 
 # Safe fallback JSON when VLM output fails schema validation after retry.
 # Signals "I saw something but couldn't parse it" — never silently drops events.
@@ -153,8 +155,16 @@ def _load_model(model_path: str, params: dict[str, Any]) -> tuple[Any, Any]:
     return model, processor
 
 
-def _validate_output(raw: str, schema_version: str = "1.0") -> bool:
-    """Check if a raw VLM output string passes pet_schema validation."""
+def validate_output(raw: str, schema_version: str = "1.0") -> bool:
+    """Check if a raw VLM output string passes pet_schema validation.
+
+    Args:
+        raw: Raw JSON string from VLM output.
+        schema_version: Schema version string forwarded to pet_schema.validate_output.
+
+    Returns:
+        True if the output passes schema validation, False otherwise.
+    """
     import pet_schema
 
     try:
@@ -254,7 +264,7 @@ def _load_standard_prompts(schema_version: str = "1.0") -> tuple[str, str]:
     return system_prompt, user_prompt
 
 
-def _run_inference(
+def run_inference(
     model_path: str,
     gold_set_path: str | None,
     params: dict[str, Any],
@@ -301,7 +311,7 @@ def _run_inference(
         return []
 
     logger.info(
-        "_run_inference: loaded gold set",
+        "run_inference: loaded gold set",
         extra={"n_records": len(records), "model_path": model_path},
     )
 
@@ -319,7 +329,7 @@ def _run_inference(
     if prompt_source == "pet_schema":
         schema_system, schema_user = _load_standard_prompts()
         logger.info(
-            "_run_inference: using pet_schema prompts",
+            "run_inference: using pet_schema prompts",
             extra={"system_len": len(schema_system), "user_prompt": schema_user},
         )
 
@@ -354,9 +364,9 @@ def _run_inference(
         output_text = _generate_one(model, processor, messages, image_path, generate_kwargs)
 
         # Retry once with higher temperature if output fails validation
-        if retry_on_failure and not _validate_output(output_text, schema_version):
+        if retry_on_failure and not validate_output(output_text, schema_version):
             logger.info(
-                "_run_inference: retrying with higher temperature",
+                "run_inference: retrying with higher temperature",
                 extra={"record_index": i, "retry_temperature": retry_temperature},
             )
             retry_kwargs = _build_generate_kwargs(
@@ -366,9 +376,9 @@ def _run_inference(
             n_retries += 1
 
             # If retry also fails, use safe fallback
-            if not _validate_output(output_text, schema_version):
+            if not validate_output(output_text, schema_version):
                 logger.warning(
-                    "_run_inference: retry failed, using fallback output",
+                    "run_inference: retry failed, using fallback output",
                     extra={"record_index": i},
                 )
                 output_text = _FALLBACK_OUTPUT
@@ -378,12 +388,12 @@ def _run_inference(
 
         if (i + 1) % 10 == 0:
             logger.info(
-                "_run_inference progress",
+                "run_inference progress",
                 extra={"completed": i + 1, "total": len(records)},
             )
 
     logger.info(
-        "_run_inference: completed",
+        "run_inference: completed",
         extra={
             "n_outputs": len(outputs),
             "n_retries": n_retries,
@@ -392,179 +402,3 @@ def _run_inference(
         },
     )
     return outputs
-
-
-def run_eval_trained(
-    model_path: str,
-    run_name: str,
-    params_path: str = "params.yaml",
-) -> GateResult:
-    """Evaluate a trained VLM checkpoint and gate its quality.
-
-    Steps:
-      1. Load params.yaml — extract gates.vlm thresholds, benchmark paths,
-         wandb config, and inference config.
-      2. Check whether gold_set_path and anomaly_set_path exist and have
-         content.
-      3. Run ``_run_inference`` against the gold set (or return [] if missing).
-      4. Always compute schema_compliance with thresholds from params.
-      5. Skip anomaly_recall, anomaly_false_positive, calibration_ece,
-         mood_spearman, and narrative_bertscore when the gold set is absent;
-         skip anomaly_recall and anomaly_false_positive when only the anomaly
-         set is absent.
-      6. Call ``check_gate`` to aggregate results.
-      7. Call ``generate_report`` to publish to W&B.
-
-    Args:
-        model_path: Path to the trained model checkpoint directory.
-        run_name: Short human-readable identifier for this evaluation run.
-        params_path: Path to params.yaml (defaults to ``"params.yaml"``).
-
-    Returns:
-        A frozen :class:`GateResult` instance.
-    """
-    # 1. Load params
-    params_dir = Path(params_path).resolve().parent
-    with open(params_path) as fh:
-        params: dict[str, Any] = yaml.safe_load(fh)
-
-    vlm_gates: dict[str, Any] = params["gates"]["vlm"]
-    benchmark_cfg: dict[str, Any] = params["benchmark"]
-    wandb_cfg: dict[str, Any] = params["wandb"]
-    inference_cfg: dict[str, Any] = params.get("inference", {})
-    schema_version: str = str(inference_cfg.get("schema_version", "1.0"))
-
-    def _resolve(p: str) -> str:
-        """Resolve path relative to params.yaml directory."""
-        path = Path(p)
-        if not path.is_absolute():
-            path = params_dir / path
-        return str(path)
-
-    gold_set_path: str = _resolve(benchmark_cfg["gold_set_path"])
-    anomaly_set_path: str = _resolve(benchmark_cfg["anomaly_set_path"])
-    raw_teacher_path = benchmark_cfg.get("teacher_reference_path", "")
-    teacher_ref_path: str = _resolve(raw_teacher_path) if raw_teacher_path else ""
-
-    # 2. Check existence and content
-    gold_path_obj = Path(gold_set_path)
-    has_gold_set = gold_path_obj.exists() and gold_path_obj.stat().st_size > 0
-
-    anomaly_path_obj = Path(anomaly_set_path)
-    has_anomaly_set = anomaly_path_obj.exists() and anomaly_path_obj.stat().st_size > 0
-
-    teacher_path_obj = Path(teacher_ref_path) if teacher_ref_path else None
-    has_teacher_references = (
-        teacher_path_obj is not None
-        and teacher_path_obj.exists()
-        and teacher_path_obj.stat().st_size > 0
-    )
-
-    if not has_gold_set:
-        logger.warning(
-            "Gold set not found or empty; skipping gold-set-dependent metrics",
-            extra={"gold_set_path": gold_set_path},
-        )
-    if not has_anomaly_set:
-        logger.warning(
-            "Anomaly set not found or empty; skipping anomaly metrics",
-            extra={"anomaly_set_path": anomaly_set_path},
-        )
-    if not has_teacher_references:
-        logger.warning(
-            "Teacher references not found or empty; skipping mood/narrative metrics",
-            extra={"teacher_reference_path": teacher_ref_path},
-        )
-
-    # 3. Run inference (returns [] when gold set absent)
-    outputs = _run_inference(
-        model_path,
-        gold_set_path if has_gold_set else None,
-        params,
-    )
-
-    # 4. Schema compliance — always run
-    results = compute_schema_compliance(
-        outputs,
-        compliance_threshold=vlm_gates.get("schema_compliance"),
-        sum_error_threshold=vlm_gates.get("distribution_sum_error"),
-        schema_version=schema_version,
-    )
-
-    # 5. Build skipped list
-    #    narrative_bertscore and mood_spearman depend on teacher references (not
-    #    gold set).  Per the design spec, they should run when teacher outputs
-    #    are available even if the gold set is absent.  For now, teacher
-    #    references are not yet available, so they are always skipped.
-    skipped: list[str] = []
-
-    if not has_teacher_references:
-        skipped.extend(["mood_spearman", "narrative_bertscore"])
-
-    if not has_gold_set:
-        skipped.extend(
-            [
-                "anomaly_recall",
-                "anomaly_false_positive",
-                "calibration_ece",
-            ]
-        )
-    elif not has_anomaly_set:
-        skipped.extend(["anomaly_recall", "anomaly_false_positive"])
-
-    # 6. Gate check
-    gate_result = check_gate(results, skipped, "vlm", params)
-
-    # 7. Report
-    metadata: dict[str, Any] = {
-        "model_path": model_path,
-        "params_path": params_path,
-        "has_gold_set": has_gold_set,
-        "has_anomaly_set": has_anomaly_set,
-        "n_outputs": len(outputs),
-    }
-    generate_report(gate_result, run_name, "vlm_trained", metadata, wandb_cfg)
-
-    return gate_result
-
-
-def main() -> None:
-    """CLI entry point for the eval_trained runner.
-
-    Parses arguments, runs evaluation, and exits with code 0 on pass or 1 on
-    fail.
-    """
-    setup_logging("pet-eval")
-
-    parser = argparse.ArgumentParser(
-        description="Evaluate a trained VLM checkpoint against the pet-eval benchmark."
-    )
-    parser.add_argument(
-        "--model_path",
-        required=True,
-        help="Path to the trained model checkpoint directory.",
-    )
-    parser.add_argument(
-        "--run_name",
-        required=True,
-        help="Short identifier for this evaluation run (used in W&B).",
-    )
-    parser.add_argument(
-        "--params",
-        default="params.yaml",
-        dest="params_path",
-        help="Path to params.yaml (default: params.yaml).",
-    )
-    args = parser.parse_args()
-
-    result = run_eval_trained(
-        model_path=args.model_path,
-        run_name=args.run_name,
-        params_path=args.params_path,
-    )
-
-    logger.info(
-        "eval_trained finished",
-        extra={"passed": result.passed, "summary": result.summary},
-    )
-    sys.exit(0 if result.passed else 1)
