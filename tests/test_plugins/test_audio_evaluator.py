@@ -1,0 +1,158 @@
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from pet_eval.plugins.audio_evaluator import AudioEvaluator
+
+
+@pytest.fixture
+def sample_card():
+    from pet_schema.model_card import ModelCard
+
+    return ModelCard(
+        id="sft-card-1",
+        version="1.0.0",
+        modality="audio",
+        task="sft",
+        arch="mobilenetv2_audioset",
+        training_recipe="dummy",
+        hydra_config_sha="a" * 64,
+        git_shas={},
+        dataset_versions={},
+        checkpoint_uri="file:///tmp/fake_audio_model.pth",
+        metrics={},
+        gate_status="pending",
+        trained_at=datetime.now(UTC),
+        trained_by="ci",
+    )
+
+
+def test_cross_repo_import_succeeds():
+    # Proves pet-train is installed and audio module is importable
+    from pet_train.audio.inference import CLASSES, AudioInference, AudioPrediction
+
+    assert AudioInference is not None
+    assert AudioPrediction is not None
+    assert len(CLASSES) == 5
+
+
+def test_registers_to_evaluators():
+    from pet_eval.plugins._register import register_all
+
+    register_all()
+    from pet_infra.registry import EVALUATORS
+
+    assert "audio_evaluator" in EVALUATORS.module_dict
+
+
+def test_registry_build_produces_evaluator():
+    from pet_eval.plugins._register import register_all
+
+    register_all()
+    from pet_infra.registry import EVALUATORS
+
+    evaluator = EVALUATORS.build(
+        {
+            "type": "audio_evaluator",
+            "metrics": ["audio_accuracy"],
+            "thresholds": {},
+        }
+    )
+    assert isinstance(evaluator, AudioEvaluator)
+
+
+def test_init_builds_metrics_from_config():
+    from pet_eval.plugins._register import register_all
+
+    register_all()
+    evaluator = AudioEvaluator(metrics=["audio_accuracy"], thresholds={})
+    assert len(evaluator._metrics) == 1
+
+
+def test_run_raises_without_input_card():
+    evaluator = AudioEvaluator(metrics=[], thresholds={})
+    with pytest.raises(ValueError, match="requires a trained model_card"):
+        evaluator.run(input_card=None, recipe=SimpleNamespace())
+
+
+def test_run_returns_updated_card_when_dir_missing(sample_card, tmp_path):
+    """When audio_test_dir doesn't exist, the evaluator returns empty metrics
+    and applies gate against empty dict (conservative: min_* thresholds would fail)."""
+    evaluator = AudioEvaluator(
+        metrics=[],
+        thresholds={},
+        audio_test_dir=str(tmp_path / "nonexistent"),
+    )
+    # AudioInference loads torch model — mock it to avoid weight download
+    with patch("pet_train.audio.inference.AudioInference") as mock_inf:
+        mock_inf.return_value = MagicMock()
+        card = evaluator.run(input_card=sample_card, recipe=SimpleNamespace())
+    assert card.gate_status == "passed"  # no thresholds to violate
+    assert card.task == "audio_eval"
+    assert card.modality == "audio"
+
+
+def test_run_iterates_audio_files_and_computes_metrics(sample_card, tmp_path):
+    """Build a tiny fake audio dir, mock predict() deterministically, verify metrics emerge."""
+    from pet_train.audio.inference import AudioPrediction
+
+    audio_root = tmp_path / "audio_bench"
+    (audio_root / "eating").mkdir(parents=True)
+    (audio_root / "drinking").mkdir(parents=True)
+    eating_clip = audio_root / "eating" / "clip1.wav"
+    drinking_clip = audio_root / "drinking" / "clip2.wav"
+    eating_clip.write_bytes(b"fake wav header")
+    drinking_clip.write_bytes(b"fake wav header")
+
+    predicted_labels = {
+        str(eating_clip): AudioPrediction(
+            label="eating",
+            confidence=0.9,
+            class_scores={
+                "eating": 0.9,
+                "drinking": 0.05,
+                "vomiting": 0.01,
+                "ambient": 0.02,
+                "other": 0.02,
+            },
+        ),
+        str(drinking_clip): AudioPrediction(
+            label="drinking",
+            confidence=0.85,
+            class_scores={
+                "eating": 0.1,
+                "drinking": 0.85,
+                "vomiting": 0.01,
+                "ambient": 0.02,
+                "other": 0.02,
+            },
+        ),
+    }
+
+    def fake_predict(path):
+        return predicted_labels[path]
+
+    fake_inference_instance = MagicMock()
+    fake_inference_instance.predict.side_effect = fake_predict
+
+    from pet_eval.plugins._register import register_all
+
+    register_all()
+    evaluator = AudioEvaluator(
+        metrics=["audio_accuracy"],
+        thresholds={},
+        audio_test_dir=str(audio_root),
+    )
+
+    with patch("pet_train.audio.inference.AudioInference", return_value=fake_inference_instance):
+        card = evaluator.run(input_card=sample_card, recipe=SimpleNamespace())
+
+    # Both predictions match ground truth → 100% accuracy.
+    # AudioAccuracyMetric emits "audio_overall_accuracy" and "audio_vomit_recall".
+    assert "audio_overall_accuracy" in card.metrics
+    assert card.metrics["audio_overall_accuracy"] == pytest.approx(1.0, abs=0.01)
+    assert card.gate_status == "passed"
