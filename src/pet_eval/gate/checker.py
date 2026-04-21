@@ -4,13 +4,14 @@ Aggregates a list of MetricResult objects into a GateResult and logs the outcome
 Thresholds are embedded in each MetricResult at creation time by the metric runners;
 this module purely aggregates and reports.
 """
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
 from pet_eval.gate.types import GateResult
-from pet_eval.metrics.types import MetricResult
+from pet_eval.plugins.metrics.types import MetricResult
 
 logger = logging.getLogger(__name__)
 

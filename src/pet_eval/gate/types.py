@@ -1,9 +1,10 @@
 """Core GateResult data type for pet-eval gate checking."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from pet_eval.metrics.types import MetricResult
+from pet_eval.plugins.metrics.types import MetricResult
 
 
 @dataclass(frozen=True)
@@ -47,9 +48,7 @@ class GateResult:
 
         n_skipped = len(skipped)
         if all_pass:
-            summary = (
-                f"PASS — {len(gated)} gated metrics passed, {n_skipped} skipped"
-            )
+            summary = f"PASS — {len(gated)} gated metrics passed, {n_skipped} skipped"
         else:
             failed_names = ", ".join(r.name for r in failed)
             summary = f"FAIL — failed: {failed_names}"

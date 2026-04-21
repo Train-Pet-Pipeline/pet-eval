@@ -1,8 +1,9 @@
 """Tests for check_gate() in pet_eval.gate.checker."""
+
 from __future__ import annotations
 
 from pet_eval.gate.checker import check_gate
-from pet_eval.metrics.types import MetricResult
+from pet_eval.plugins.metrics.types import MetricResult
 
 
 def test_vlm_all_pass(sample_params: dict) -> None:

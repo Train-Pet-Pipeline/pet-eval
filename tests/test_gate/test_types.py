@@ -1,8 +1,9 @@
 """Tests for GateResult data type."""
+
 from __future__ import annotations
 
 from pet_eval.gate.types import GateResult
-from pet_eval.metrics.types import MetricResult
+from pet_eval.plugins.metrics.types import MetricResult
 
 
 def _make_metric(name: str, value: float, threshold: float | None, passed: bool) -> MetricResult:
