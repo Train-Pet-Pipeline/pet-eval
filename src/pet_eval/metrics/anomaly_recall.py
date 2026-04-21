@@ -4,6 +4,7 @@ Computes two MetricResults from binary anomaly predictions:
 - ``anomaly_recall``: TP / (TP + FN), gated with ``"gte"`` operator.
 - ``anomaly_false_positive``: FP / (FP + TN), gated with ``"lte"`` operator.
 """
+
 from __future__ import annotations
 
 import logging

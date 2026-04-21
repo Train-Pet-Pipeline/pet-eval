@@ -3,6 +3,7 @@
 Computes the mean BERTScore F1 between model-generated narratives and
 teacher-generated reference narratives using a Chinese BERT model.
 """
+
 from __future__ import annotations
 
 import logging

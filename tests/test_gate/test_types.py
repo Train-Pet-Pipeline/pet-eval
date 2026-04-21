@@ -1,4 +1,5 @@
 """Tests for GateResult data type."""
+
 from __future__ import annotations
 
 from pet_eval.gate.types import GateResult

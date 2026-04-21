@@ -1,4 +1,5 @@
 """Tests for mood_correlation metric — TDD, tests written before implementation."""
+
 from __future__ import annotations
 
 import pytest

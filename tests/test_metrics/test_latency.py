@@ -1,4 +1,5 @@
 """Tests for latency P50/P95/P99 metric — TDD, tests written before implementation."""
+
 from __future__ import annotations
 
 import pytest
@@ -19,9 +20,7 @@ def test_normal_timings() -> None:
 
     assert isinstance(result, MetricResult)
     assert result.name == "latency_p95_ms"
-    assert 2900.0 <= result.value < 3000.0, (
-        f"Expected P95 in [2900, 3000), got {result.value}"
-    )
+    assert 2900.0 <= result.value < 3000.0, f"Expected P95 in [2900, 3000), got {result.value}"
 
 
 # ---------------------------------------------------------------------------

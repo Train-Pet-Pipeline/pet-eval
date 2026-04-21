@@ -5,6 +5,7 @@ Computes two MetricResult objects from a list of raw VLM output strings:
   - distribution_sum_error (lte): mean absolute deviation of probability
     distributions from 1.0 across all valid outputs
 """
+
 from __future__ import annotations
 
 import json

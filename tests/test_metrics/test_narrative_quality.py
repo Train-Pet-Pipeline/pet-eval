@@ -1,4 +1,5 @@
 """Tests for narrative_quality BERTScore metric — TDD, tests written before implementation."""
+
 from __future__ import annotations
 
 from unittest.mock import patch

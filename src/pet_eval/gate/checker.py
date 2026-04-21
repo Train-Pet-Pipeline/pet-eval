@@ -4,6 +4,7 @@ Aggregates a list of MetricResult objects into a GateResult and logs the outcome
 Thresholds are embedded in each MetricResult at creation time by the metric runners;
 this module purely aggregates and reports.
 """
+
 from __future__ import annotations
 
 import logging

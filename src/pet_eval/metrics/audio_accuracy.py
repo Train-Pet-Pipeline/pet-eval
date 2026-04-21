@@ -4,6 +4,7 @@ Computes two MetricResults from multi-class audio predictions:
 - ``audio_overall_accuracy``: correct / total, gated with ``"gte"`` operator.
 - ``audio_vomit_recall``: per-class recall for the "vomiting" class, gated with ``"gte"`` operator.
 """
+
 from __future__ import annotations
 
 import logging
@@ -97,18 +98,12 @@ def compute_audio_accuracy(
 
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-        f1 = (
-            2 * precision * recall / (precision + recall)
-            if (precision + recall) > 0
-            else 0.0
-        )
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
 
         per_class[cls] = {"precision": precision, "recall": recall, "f1": f1}
 
     # Vomit recall — check "vomiting" first (canonical), then "vomit" (alias); fall back to 0.0
-    vomit_recall = (
-        per_class.get("vomiting", per_class.get("vomit", {})).get("recall", 0.0)
-    )
+    vomit_recall = per_class.get("vomiting", per_class.get("vomit", {})).get("recall", 0.0)
 
     # Serialise confusion matrix to plain dicts for JSON-safe details
     cm_serialisable = {k: dict(v) for k, v in confusion_matrix.items()}

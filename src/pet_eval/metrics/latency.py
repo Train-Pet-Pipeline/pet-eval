@@ -5,6 +5,7 @@ n_samples are surfaced in ``details``.  The metric uses linear interpolation
 (nearest-rank with interpolation) and is gated with operator ``lte``
 (lower latency is better).
 """
+
 from __future__ import annotations
 
 import logging

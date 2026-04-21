@@ -1,4 +1,5 @@
 """Tests for pet_eval.runners.eval_trained."""
+
 from __future__ import annotations
 
 import pathlib
@@ -18,30 +19,23 @@ def _write_params(tmp_dir: pathlib.Path, params: dict[str, Any]) -> pathlib.Path
     return params_file
 
 
-@patch("pet_eval.report.generate_report.wandb")
+@patch("pet_eval.runners.eval_trained.generate_report")
 @patch("pet_eval.runners.eval_trained._run_inference")
 def test_no_gold_set_runs_schema_only(
     mock_inference: MagicMock,
-    mock_wandb: MagicMock,
+    mock_report: MagicMock,
     tmp_dir: pathlib.Path,
     sample_params: dict[str, Any],
 ) -> None:
     """When the gold set does not exist, skipped list must contain gold-set
     dependent metrics, and run_eval_trained must still return a GateResult."""
-    mock_inference.return_value = [
-        '{"schema_version": "1.0", "pet_present": false}'
-    ]
+    mock_inference.return_value = ['{"schema_version": "1.0", "pet_present": false}']
 
     # Point benchmark paths at non-existent files so has_gold_set is False
     sample_params["benchmark"]["gold_set_path"] = str(tmp_dir / "gold_set.jsonl")
     sample_params["benchmark"]["anomaly_set_path"] = str(tmp_dir / "anomaly_set.jsonl")
 
     params_file = _write_params(tmp_dir, sample_params)
-
-    # Configure a mock wandb run
-    mock_run = MagicMock()
-    mock_run.summary = {}
-    mock_wandb.init.return_value = mock_run
 
     result = run_eval_trained(
         model_path="/fake/model",
@@ -63,27 +57,21 @@ def test_no_gold_set_runs_schema_only(
     )
 
 
-@patch("pet_eval.report.generate_report.wandb")
+@patch("pet_eval.runners.eval_trained.generate_report")
 @patch("pet_eval.runners.eval_trained._run_inference")
 def test_returns_gate_result(
     mock_inference: MagicMock,
-    mock_wandb: MagicMock,
+    mock_report: MagicMock,
     tmp_dir: pathlib.Path,
     sample_params: dict[str, Any],
 ) -> None:
     """run_eval_trained must always return a GateResult instance."""
-    mock_inference.return_value = [
-        '{"schema_version": "1.0", "pet_present": false}'
-    ]
+    mock_inference.return_value = ['{"schema_version": "1.0", "pet_present": false}']
 
     sample_params["benchmark"]["gold_set_path"] = str(tmp_dir / "gold_set.jsonl")
     sample_params["benchmark"]["anomaly_set_path"] = str(tmp_dir / "anomaly_set.jsonl")
 
     params_file = _write_params(tmp_dir, sample_params)
-
-    mock_run = MagicMock()
-    mock_run.summary = {}
-    mock_wandb.init.return_value = mock_run
 
     result = run_eval_trained(
         model_path="/fake/model",
@@ -94,11 +82,11 @@ def test_returns_gate_result(
     assert isinstance(result, GateResult)
 
 
-@patch("pet_eval.report.generate_report.wandb")
+@patch("pet_eval.runners.eval_trained.generate_report")
 @patch("pet_eval.runners.eval_trained._run_inference")
 def test_exit_code_logic(
     mock_inference: MagicMock,
-    mock_wandb: MagicMock,
+    mock_report: MagicMock,
     tmp_dir: pathlib.Path,
     sample_params: dict[str, Any],
 ) -> None:
@@ -113,10 +101,6 @@ def test_exit_code_logic(
     sample_params["benchmark"]["anomaly_set_path"] = str(tmp_dir / "anomaly_set.jsonl")
 
     params_file = _write_params(tmp_dir, sample_params)
-
-    mock_run = MagicMock()
-    mock_run.summary = {}
-    mock_wandb.init.return_value = mock_run
 
     result = run_eval_trained(
         model_path="/fake/model",
