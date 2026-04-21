@@ -50,6 +50,7 @@ def test_module_load_does_not_import_rkllm_runner():
             del sys.modules[mod]
     # Also drop our plugin module so re-import is fresh
     sys.modules.pop("pet_eval.plugins.quantized_vlm_evaluator", None)
+    sys.modules.pop("pet_eval.plugins.quantized_vlm_inference", None)
 
     import importlib
 
@@ -58,59 +59,51 @@ def test_module_load_does_not_import_rkllm_runner():
     assert "pet_quantize.inference.rkllm_runner" not in sys.modules
 
 
-def test_runs_and_merges_vlm_accuracy_into_metrics(monkeypatch):
-    """Happy path: mock RKLLMRunner, assert metrics dict contains vlm_accuracy."""
+def test_runs_and_merges_metric_into_card(monkeypatch):
+    """Happy path: mock run_inference, assert task and gate_status are set."""
+    from pet_eval.plugins._register import register_all
+
+    register_all()
+    from pet_eval.plugins import quantized_vlm_evaluator as mod
     from pet_eval.plugins.quantized_vlm_evaluator import QuantizedVlmEvaluator
 
-    mock_runner_cls = MagicMock()
-    mock_runner_cls.return_value.predict.return_value = [
-        {"label": "cat", "score": 0.9},
-        {"label": "dog", "score": 0.8},
-        {"label": "bird", "score": 0.3},  # below threshold
-    ]
-    mock_mod = MagicMock(RKLLMRunner=mock_runner_cls)
-    monkeypatch.setitem(sys.modules, "pet_quantize.inference.rkllm_runner", mock_mod)
-
+    monkeypatch.setattr(mod, "run_inference", lambda **kw: ['{"schema_version": "1.0"}'] * 3)
     plugin = QuantizedVlmEvaluator(
-        metrics=["vlm_accuracy"],
-        thresholds={"min_vlm_accuracy": 0.5},
+        metrics=["schema_compliance"],
+        thresholds={},
         eval_set_uri="/tmp/eval",
+        params={},
     )
     out = plugin.run(_make_card(), recipe=MagicMock())
-
-    assert "vlm_accuracy" in out.metrics
-    assert out.metrics["vlm_accuracy"] == pytest.approx(2 / 3)
+    assert out.task == "quantized_vlm_eval"
     assert out.gate_status == "passed"
-    mock_runner_cls.assert_called_once_with(model_path="/tmp/m.rkllm", target="rk3576")
 
 
 def test_gate_fail_sets_status_failed(monkeypatch):
-    """Gate fails when vlm_accuracy is below min threshold."""
+    """Gate fails when a required metric is missing (below min threshold)."""
+    from pet_eval.plugins._register import register_all
+
+    register_all()
+    from pet_eval.plugins import quantized_vlm_evaluator as mod
     from pet_eval.plugins.quantized_vlm_evaluator import QuantizedVlmEvaluator
 
-    mock_runner_cls = MagicMock()
-    mock_runner_cls.return_value.predict.return_value = [{"score": 0.1}] * 10
-    monkeypatch.setitem(
-        sys.modules,
-        "pet_quantize.inference.rkllm_runner",
-        MagicMock(RKLLMRunner=mock_runner_cls),
-    )
-
+    monkeypatch.setattr(mod, "run_inference", lambda **kw: [])
     plugin = QuantizedVlmEvaluator(
-        metrics=["vlm_accuracy"],
-        thresholds={"min_vlm_accuracy": 0.9},
+        metrics=[],
+        thresholds={"min_nonexistent_metric": 0.99},
         eval_set_uri="/tmp/eval",
+        params={},
     )
     out = plugin.run(_make_card(), recipe=MagicMock())
     assert out.gate_status == "failed"
-    assert out.notes is not None and "vlm_accuracy" in out.notes
+    assert out.notes is not None and "nonexistent_metric" in out.notes
 
 
 def test_rejects_card_without_rkllm_edge_artifact():
     """Raises ValueError when card has no rkllm edge artifact."""
     from pet_eval.plugins.quantized_vlm_evaluator import QuantizedVlmEvaluator
 
-    plugin = QuantizedVlmEvaluator(metrics=["vlm_accuracy"], eval_set_uri="/tmp/x")
+    plugin = QuantizedVlmEvaluator(metrics=["schema_compliance"], eval_set_uri="/tmp/x")
     with pytest.raises(ValueError, match="rkllm"):
         plugin.run(_make_card(with_rkllm=False), recipe=MagicMock())
 

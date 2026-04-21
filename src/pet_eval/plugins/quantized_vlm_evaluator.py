@@ -1,11 +1,10 @@
-"""QuantizedVlmEvaluator plugin — runs inference through pet_quantize.inference.rkllm_runner.
+"""QuantizedVlmEvaluator plugin — EVALUATORS-registered adapter for RKLLM eval.
 
-Lazy-imports ``pet_quantize`` so that pet-eval module-load does NOT require
-rkllm SDK to be installed. Lazy import matches the AudioEvaluator →
-pet_train.audio.inference pattern from Phase 3A.
+Delegates inference to quantized_vlm_inference.run_inference (which lazy-imports
+RKLLMRunner) and delegates metric computation to the METRICS registry, mirroring
+the VLMEvaluator → vlm_inference pattern from Phase 3A.
 
-Writes metrics into ``ModelCard.metrics`` (merged) and applies gate against
-``cfg["thresholds"]`` using ``pet_eval.plugins.gate.apply_gate``.
+Module-load does NOT require rkllm SDK to be installed.
 """
 
 from __future__ import annotations
@@ -13,23 +12,27 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from pet_infra.registry import EVALUATORS
+from pet_infra.registry import EVALUATORS, METRICS
 from pet_schema.model_card import ModelCard
 
 from pet_eval.plugins.gate import apply_gate
+from pet_eval.plugins.quantized_vlm_inference import run_inference
 
 log = logging.getLogger(__name__)
 
 
 @EVALUATORS.register_module(name="quantized_vlm_evaluator", force=True)
 class QuantizedVlmEvaluator:
-    """Evaluate a quantized RKLLM artifact; emit accuracy metrics + gate status.
+    """Evaluate a quantized RKLLM artifact; emit metrics + gate status.
 
     Expected config keys (via Registry.build kwargs):
-      - metrics: list[str] — currently supports ["vlm_accuracy", "kl_divergence"]
-      - thresholds: dict[str, float] — min_*/max_* keys forwarded to apply_gate
+      - metrics: list[str] — metric names to build via METRICS.build; supports
+        any name registered in METRICS (e.g. "schema_compliance", "latency")
+      - thresholds: dict[str, float] — min_*/max_* thresholds for apply_gate
       - target: str — RK platform (default "rk3576")
-      - eval_set_uri: str — path forwarded to RKLLMRunner.predict
+      - eval_set_uri: str | None — path to JSONL eval set forwarded to run_inference
+      - params: dict — inference config passed to run_inference
+        (e.g. {"inference": {"max_new_tokens": 2048}})
     """
 
     def __init__(self, **cfg: Any) -> None:
@@ -39,11 +42,14 @@ class QuantizedVlmEvaluator:
             **cfg: Keyword arguments from Registry.build.  See class docstring
                 for the expected keys.
         """
-        self._cfg = dict(cfg)
-        self._metric_names: list[str] = cfg.get("metrics", [])
+        self._cfg: dict[str, Any] = dict(cfg)
+        metric_names: list[str] = cfg.get("metrics", [])
+        self._metrics: list[Any] = [METRICS.build({"type": name}) for name in metric_names]
+        self._metric_names: list[str] = metric_names
         self._thresholds: dict[str, float] = cfg.get("thresholds", {})
         self._target: str = cfg.get("target", "rk3576")
         self._eval_set_uri: str | None = cfg.get("eval_set_uri")
+        self._params: dict[str, Any] = cfg.get("params", {})
 
     def run(self, input_card: ModelCard | None, recipe: Any) -> ModelCard:
         """Run inference on the RKLLM artifact and return an updated ModelCard.
@@ -70,12 +76,14 @@ class QuantizedVlmEvaluator:
                 "of format='rkllm'; got none."
             )
 
-        from pet_quantize.inference.rkllm_runner import RKLLMRunner  # lazy
+        outputs = run_inference(
+            model_path=rkllm_artifacts[0].artifact_uri,
+            eval_set_path=self._eval_set_uri,
+            target=self._target,
+            params=self._params,
+        )
 
-        runner = RKLLMRunner(model_path=rkllm_artifacts[0].artifact_uri, target=self._target)
-        predictions = runner.predict(self._eval_set_uri)
-
-        metrics_out = self._compute_metrics(predictions)
+        metrics_out: dict[str, float] = self._compute_metrics(outputs)
         gate = apply_gate(metrics_out, self._thresholds)
 
         merged_metrics = input_card.metrics.copy()
@@ -90,21 +98,31 @@ class QuantizedVlmEvaluator:
             }
         )
 
-    def _compute_metrics(self, predictions: list[dict]) -> dict[str, float]:
-        """Compute configured metrics over RKLLMRunner predictions.
+    def _compute_metrics(self, outputs: list[str]) -> dict[str, float]:
+        """Compute each configured metric over RKLLM outputs.
+
+        The actual metric invocation contract varies per metric (some take
+        (predicted, actual), some take (outputs, schema_version)). For Phase 3B
+        P3-A we invoke with the outputs as the single positional arg and unpack
+        list[MetricResult] into dict[name -> value]. Metrics whose signature
+        doesn't match that pattern log a warning and skip.
 
         Args:
-            predictions: List of prediction dicts returned by RKLLMRunner.predict.
-                Each dict is expected to contain at least a ``score`` float key.
+            outputs: List of raw RKLLM output strings from run_inference.
 
         Returns:
             Dict mapping metric name to float value.
         """
         results: dict[str, float] = {}
-        if "vlm_accuracy" in self._metric_names:
-            correct = sum(1 for p in predictions if p.get("score", 0.0) > 0.5)
-            results["vlm_accuracy"] = correct / max(len(predictions), 1)
-        if "kl_divergence" in self._metric_names:
-            # Stub: real impl compares quantized vs fp predictions in a follow-up
-            results["kl_divergence"] = 0.05
+        for name, metric in zip(self._metric_names, self._metrics, strict=True):
+            try:
+                out = metric(outputs)
+            except TypeError as e:
+                log.warning("metric %s skipped: signature mismatch (%s)", name, e)
+                continue
+            for mr in out if isinstance(out, list) else [out]:
+                if hasattr(mr, "name") and hasattr(mr, "value"):
+                    results[mr.name] = float(mr.value)
+                else:
+                    results[name] = float(mr)
         return results
