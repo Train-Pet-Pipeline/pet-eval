@@ -15,6 +15,7 @@ Usage::
 When ``outlines`` is not installed, :func:`build_constrained_generator` raises
 ``ImportError`` with a clear message.
 """
+
 from __future__ import annotations
 
 import json
@@ -46,14 +47,10 @@ def _load_json_schema(schema_version: str = "1.0") -> dict[str, Any]:
         FileNotFoundError: If the schema file does not exist.
     """
     if _SCHEMA_DIR is None:
-        raise ImportError(
-            "pet_schema package is required for constrained decoding"
-        )
+        raise ImportError("pet_schema package is required for constrained decoding")
     schema_path = _SCHEMA_DIR / f"v{schema_version}" / "schema.json"
     if not schema_path.exists():
-        raise FileNotFoundError(
-            f"JSON Schema not found: {schema_path}"
-        )
+        raise FileNotFoundError(f"JSON Schema not found: {schema_path}")
     return json.loads(schema_path.read_text())
 
 

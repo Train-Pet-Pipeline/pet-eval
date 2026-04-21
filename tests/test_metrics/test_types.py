@@ -1,4 +1,5 @@
 """Tests for MetricResult data type."""
+
 from __future__ import annotations
 
 from pet_eval.metrics.types import MetricResult

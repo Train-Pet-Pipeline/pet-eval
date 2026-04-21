@@ -18,7 +18,6 @@ dependencies = [
     "qwen-vl-utils",
     "bert-score>=0.3.13",
     "scipy>=1.11",
-    "wandb",
     "pyyaml",
     "tenacity",
     "python-json-logger",

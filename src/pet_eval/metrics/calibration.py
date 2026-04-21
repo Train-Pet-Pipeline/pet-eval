@@ -4,6 +4,7 @@ Computes ECE as an informational-only MetricResult — never gated,
 always passes.  ECE measures alignment between model confidence and
 empirical accuracy across equal-width confidence bins.
 """
+
 from __future__ import annotations
 
 import logging

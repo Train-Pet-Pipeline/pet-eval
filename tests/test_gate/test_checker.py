@@ -1,4 +1,5 @@
 """Tests for check_gate() in pet_eval.gate.checker."""
+
 from __future__ import annotations
 
 from pet_eval.gate.checker import check_gate

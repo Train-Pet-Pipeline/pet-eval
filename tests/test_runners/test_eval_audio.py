@@ -1,4 +1,5 @@
 """Tests for pet_eval.runners.eval_audio."""
+
 from __future__ import annotations
 
 import pathlib
@@ -18,11 +19,11 @@ def _write_params(tmp_dir: pathlib.Path, params: dict[str, Any]) -> pathlib.Path
     return params_file
 
 
-@patch("pet_eval.report.generate_report.wandb")
+@patch("pet_eval.runners.eval_audio.generate_report")
 @patch("pet_eval.runners.eval_audio._run_audio_inference")
 def test_returns_gate_result(
     mock_inference: MagicMock,
-    mock_wandb: MagicMock,
+    mock_report: MagicMock,
     tmp_dir: pathlib.Path,
     sample_params: dict[str, Any],
 ) -> None:
@@ -34,10 +35,6 @@ def test_returns_gate_result(
 
     params_file = _write_params(tmp_dir, sample_params)
 
-    mock_run = MagicMock()
-    mock_run.summary = {}
-    mock_wandb.init.return_value = mock_run
-
     result = run_eval_audio(
         model_path="/fake/audio_model",
         run_name="test-audio-run",
@@ -47,11 +44,11 @@ def test_returns_gate_result(
     assert isinstance(result, GateResult)
 
 
-@patch("pet_eval.report.generate_report.wandb")
+@patch("pet_eval.runners.eval_audio.generate_report")
 @patch("pet_eval.runners.eval_audio._run_audio_inference")
 def test_uses_audio_gate(
     mock_inference: MagicMock,
-    mock_wandb: MagicMock,
+    mock_report: MagicMock,
     tmp_dir: pathlib.Path,
     sample_params: dict[str, Any],
 ) -> None:
@@ -65,10 +62,6 @@ def test_uses_audio_gate(
 
     params_file = _write_params(tmp_dir, sample_params)
 
-    mock_run = MagicMock()
-    mock_run.summary = {}
-    mock_wandb.init.return_value = mock_run
-
     result = run_eval_audio(
         model_path="/fake/audio_model",
         run_name="test-audio-pass",
@@ -79,11 +72,11 @@ def test_uses_audio_gate(
     assert result.passed is True
 
 
-@patch("pet_eval.report.generate_report.wandb")
+@patch("pet_eval.runners.eval_audio.generate_report")
 @patch("pet_eval.runners.eval_audio._run_audio_inference")
 def test_no_test_data(
     mock_inference: MagicMock,
-    mock_wandb: MagicMock,
+    mock_report: MagicMock,
     tmp_dir: pathlib.Path,
     sample_params: dict[str, Any],
 ) -> None:
@@ -91,10 +84,6 @@ def test_no_test_data(
     mock_inference.return_value = ([], [])
 
     params_file = _write_params(tmp_dir, sample_params)
-
-    mock_run = MagicMock()
-    mock_run.summary = {}
-    mock_wandb.init.return_value = mock_run
 
     result = run_eval_audio(
         model_path="/fake/audio_model",

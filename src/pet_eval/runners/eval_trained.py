@@ -8,6 +8,7 @@ Supports:
   - Retry with higher temperature on schema validation failure
   - Optional constrained decoding via ``outlines`` library
 """
+
 from __future__ import annotations
 
 import argparse
@@ -210,9 +211,7 @@ def _generate_one(
     """
     import torch
 
-    text = processor.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True
-    )
+    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 
     if image_path and Path(image_path).exists():
         from qwen_vl_utils import process_vision_info
@@ -233,9 +232,7 @@ def _generate_one(
         generated = model.generate(**inputs, **generate_kwargs)
 
     generated_trimmed = generated[:, inputs.input_ids.shape[1] :]
-    output_text = processor.batch_decode(
-        generated_trimmed, skip_special_tokens=True
-    )[0]
+    output_text = processor.batch_decode(generated_trimmed, skip_special_tokens=True)[0]
     return output_text.strip()
 
 
@@ -350,15 +347,11 @@ def _run_inference(
 
         user_content: list[dict[str, str]] = []
         if image_path and Path(image_path).exists():
-            user_content.append(
-                {"type": "image", "image": f"file://{image_path}"}
-            )
+            user_content.append({"type": "image", "image": f"file://{image_path}"})
         user_content.append({"type": "text", "text": prompt_text})
         messages.append({"role": "user", "content": user_content})
 
-        output_text = _generate_one(
-            model, processor, messages, image_path, generate_kwargs
-        )
+        output_text = _generate_one(model, processor, messages, image_path, generate_kwargs)
 
         # Retry once with higher temperature if output fails validation
         if retry_on_failure and not _validate_output(output_text, schema_version):
@@ -369,9 +362,7 @@ def _run_inference(
             retry_kwargs = _build_generate_kwargs(
                 inference_cfg, temperature_override=retry_temperature
             )
-            output_text = _generate_one(
-                model, processor, messages, image_path, retry_kwargs
-            )
+            output_text = _generate_one(model, processor, messages, image_path, retry_kwargs)
             n_retries += 1
 
             # If retry also fails, use safe fallback

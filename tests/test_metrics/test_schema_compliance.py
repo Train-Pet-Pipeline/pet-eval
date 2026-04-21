@@ -1,4 +1,5 @@
 """Tests for schema_compliance metric — TDD, tests written before implementation."""
+
 from __future__ import annotations
 
 import json
@@ -12,6 +13,7 @@ from pet_eval.metrics.types import MetricResult
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _json(d: dict) -> str:
     """Serialise a dict to a JSON string."""
     return json.dumps(d)
@@ -20,6 +22,7 @@ def _json(d: dict) -> str:
 # ---------------------------------------------------------------------------
 # Test 1: all valid outputs → compliance=1.0, sum_error near 0
 # ---------------------------------------------------------------------------
+
 
 def test_all_valid(sample_vlm_output_valid: dict) -> None:
     """Five valid outputs should yield compliance_rate=1.0 and sum_error<0.01."""
@@ -40,6 +43,7 @@ def test_all_valid(sample_vlm_output_valid: dict) -> None:
 # Test 2: all invalid JSON → compliance=0.0
 # ---------------------------------------------------------------------------
 
+
 def test_all_invalid_json() -> None:
     """All non-parseable strings should yield compliance_rate=0.0."""
     outputs = ["not json", "{bad"]
@@ -56,6 +60,7 @@ def test_all_invalid_json() -> None:
 # Test 3: mixed valid and invalid → compliance≈0.667
 # ---------------------------------------------------------------------------
 
+
 def test_mixed_valid_invalid(sample_vlm_output_valid: dict) -> None:
     """Two valid + one invalid string → compliance_rate ≈ 0.667."""
     outputs = [_json(sample_vlm_output_valid), "not json", _json(sample_vlm_output_valid)]
@@ -71,6 +76,7 @@ def test_mixed_valid_invalid(sample_vlm_output_valid: dict) -> None:
 # ---------------------------------------------------------------------------
 # Test 4: output with bad distribution sum → sum_error > 0.01
 # ---------------------------------------------------------------------------
+
 
 def test_bad_distribution_sum(sample_vlm_output_invalid: dict) -> None:
     """A schema-invalid output (bad distribution sum) should report sum_error > 0.01.
@@ -140,6 +146,7 @@ def test_bad_distribution_sum(sample_vlm_output_invalid: dict) -> None:
 # Test 5: empty outputs list → compliance=0.0, sum_error=1.0
 # ---------------------------------------------------------------------------
 
+
 def test_empty_outputs() -> None:
     """Empty input list should return compliance=0.0 and sum_error=1.0."""
     results = compute_schema_compliance([], schema_version="1.0")
@@ -157,6 +164,7 @@ def test_empty_outputs() -> None:
 # ---------------------------------------------------------------------------
 # Test 6: thresholds forwarded correctly to MetricResult
 # ---------------------------------------------------------------------------
+
 
 def test_thresholds_from_params(sample_vlm_output_valid: dict) -> None:
     """Explicit threshold kwargs must be forwarded to the MetricResult objects."""
