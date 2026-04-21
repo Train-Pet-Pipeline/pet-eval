@@ -18,20 +18,40 @@ def register_all() -> None:
         import pet_infra  # noqa: F401  # peer-dep guard
     except ImportError as e:
         raise RuntimeError(
-            "pet-eval v2 requires pet-infra. Install via matrix row 2026.07-rc."
+            "pet-eval v2 requires pet-infra. Install via matrix row 2026.08-rc."
         ) from e
     try:
         import pet_train  # noqa: F401  # cross-repo peer-dep for AudioEvaluator (P2-D)
     except ImportError as e:
         raise RuntimeError(
             "pet-eval v2 requires pet-train runtime (audio inference). "
-            "Install via matrix row 2026.07-rc."
+            "Install via matrix row 2026.08-rc."
         ) from e
+
+    # Cross-repo peer-dep (Phase 3B): pet-quantize for QuantizedVlmEvaluator.
+    # Soft check — peer-dep-smoke CI is the real gate; warn here rather than
+    # hard-fail because partial installs can delete pet_quantize transiently.
+    try:
+        import pet_quantize  # noqa: F401
+        _pq_ver = getattr(pet_quantize, "__version__", "0.0.0")
+        if not _pq_ver.startswith("2."):
+            import logging
+            logging.getLogger(__name__).warning(
+                "pet-eval expects pet-quantize 2.x per matrix 2026.08-rc; got %s", _pq_ver
+            )
+    except ImportError:
+        import logging
+        logging.getLogger(__name__).warning(
+            "pet-quantize not importable; QuantizedVlmEvaluator will fail at run-time"
+        )
 
     # Metric plugins — import to trigger @METRICS.register_module side-effects
     # Evaluator plugins
-    from pet_eval.plugins import vlm_evaluator  # noqa: F401
-    from pet_eval.plugins import audio_evaluator  # noqa: F401
+    from pet_eval.plugins import (
+        audio_evaluator,  # noqa: F401
+        quantized_vlm_evaluator,  # noqa: F401
+        vlm_evaluator,  # noqa: F401
+    )
     from pet_eval.plugins.metrics import (  # noqa: F401
         anomaly_recall,
         audio_accuracy,
