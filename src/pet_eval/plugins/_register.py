@@ -29,6 +29,8 @@ def register_all() -> None:
         ) from e
 
     # Metric plugins — import to trigger @METRICS.register_module side-effects
+    # Evaluator plugins
+    from pet_eval.plugins import vlm_evaluator  # noqa: F401
     from pet_eval.plugins.metrics import (  # noqa: F401
         anomaly_recall,
         audio_accuracy,
@@ -39,5 +41,3 @@ def register_all() -> None:
         narrative_quality,
         schema_compliance,
     )
-    # Evaluator plugins (filled in P2-C/D):
-    # from pet_eval.plugins import vlm_evaluator, audio_evaluator  # noqa: F401
