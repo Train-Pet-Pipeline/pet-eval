@@ -52,6 +52,11 @@ def register_all() -> None:
         quantized_vlm_evaluator,  # noqa: F401
         vlm_evaluator,  # noqa: F401
     )
+    from pet_eval.plugins.fusion import (  # noqa: F401  triggers @EVALUATORS.register_module
+        and_gate,
+        single_modal,
+        weighted,
+    )
     from pet_eval.plugins.metrics import (  # noqa: F401
         anomaly_recall,
         audio_accuracy,
