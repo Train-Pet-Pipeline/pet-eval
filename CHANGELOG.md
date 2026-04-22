@@ -3,7 +3,7 @@
 All notable changes to pet-eval are documented here.
 Format follows Keep a Changelog; versions follow SemVer.
 
-## [2.2.0-rc1] - 2026-04-22
+## [2.2.0] - 2026-04-22
 
 Phase 4 sub-phase P2-B (cross-modal fusion evaluators + W&B residue removal).
 

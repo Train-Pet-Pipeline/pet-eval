@@ -27,11 +27,11 @@ jobs:
       - name: Install system deps
         run: sudo apt-get update && sudo apt-get install -y libsndfile1
 
-      - name: Step 1 — install pet-schema (peer-dep, Phase 4 v2.4.0-rc1)
-        run: pip install 'pet-schema @ git+https://github.com/Train-Pet-Pipeline/pet-schema@v2.4.0-rc1'
+      - name: Step 1 — install pet-schema (peer-dep, Phase 4 v2.4.0)
+        run: pip install 'pet-schema @ git+https://github.com/Train-Pet-Pipeline/pet-schema@v2.4.0'
 
-      - name: Step 2 — install pet-infra (peer-dep, Phase 4 v2.5.0-rc1)
-        run: pip install 'pet-infra @ git+https://github.com/Train-Pet-Pipeline/pet-infra@v2.5.0-rc1'
+      - name: Step 2 — install pet-infra (peer-dep, Phase 4 v2.5.0)
+        run: pip install 'pet-infra @ git+https://github.com/Train-Pet-Pipeline/pet-infra@v2.5.0'
 
       - name: Step 3 — install pet-train (cross-repo runtime for AudioEvaluator, matrix 2026.08)
         run: pip install 'pet-train @ git+https://github.com/Train-Pet-Pipeline/pet-train@v2.0.0'
@@ -47,8 +47,8 @@ jobs:
 
       - name: Step 7 — re-pin pet-schema + pet-infra (last-wins; pet-quantize v2.0.0 transitively pins older versions)
         run: |
-          pip install --upgrade --force-reinstall --no-deps 'pet-schema @ git+https://github.com/Train-Pet-Pipeline/pet-schema@v2.4.0-rc1'
-          pip install --upgrade --force-reinstall --no-deps 'pet-infra @ git+https://github.com/Train-Pet-Pipeline/pet-infra@v2.5.0-rc1'
+          pip install --upgrade --force-reinstall --no-deps 'pet-schema @ git+https://github.com/Train-Pet-Pipeline/pet-schema@v2.4.0'
+          pip install --upgrade --force-reinstall --no-deps 'pet-infra @ git+https://github.com/Train-Pet-Pipeline/pet-infra@v2.5.0'
 
       - name: Step 8 — assert peer-dep versions (§11.4)
         run: |
