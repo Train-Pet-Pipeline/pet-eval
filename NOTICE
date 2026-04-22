@@ -1,0 +1,9 @@
+Train-Pet-Pipeline / pet-eval
+Copyright 2026 Train-Pet-Pipeline
+
+This product includes software developed at:
+
+- lm-evaluation-harness (vendor/lm-evaluation-harness/)
+  Licensed under the MIT License
+  https://github.com/EleutherAI/lm-evaluation-harness
+  See vendor/lm-evaluation-harness/LICENSE for full text.
