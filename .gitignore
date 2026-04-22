@@ -45,9 +45,6 @@ Thumbs.db
 # OS
 *.log
 
-# wandb
-wandb/
-
 # Benchmark data (checked in separately or downloaded)
 *.jsonl
 frames/
