@@ -8,6 +8,7 @@ build-backend = "setuptools.build_meta"
 name = "pet-eval"
 version = "2.2.0"
 requires-python = ">=3.11,<3.12"
+license = {text = "BUSL-1.1"}
 dependencies = [
     "pet-schema",
     "pet-train",  # cross-repo runtime: AudioEvaluator uses pet_train.audio.inference (spec §5.3)
