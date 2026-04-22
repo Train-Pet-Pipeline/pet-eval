@@ -2,10 +2,6 @@
 
 Writes gate evaluation outcomes to a JSON file in the model directory.
 Experiment tracking via ClearML is handled by the orchestrator (P0-B/C).
-
-Note: The ``wandb_config`` parameter is accepted for caller compatibility
-but ignored — wandb logging was removed in Phase 3A. The parameter will be
-dropped when eval_trained/eval_audio runners migrate to plugins (P2-C/D).
 """
 
 from __future__ import annotations
@@ -25,7 +21,6 @@ def generate_report(
     run_name: str,
     eval_type: str,
     metadata: dict[str, Any],
-    wandb_config: dict[str, Any] | None = None,
 ) -> None:
     """Write a gate evaluation result to a local JSON report file.
 
@@ -38,8 +33,6 @@ def generate_report(
         run_name: Short identifier for the model/checkpoint under test.
         eval_type: Category label (``"vlm_trained"``, ``"audio"``, etc.).
         metadata: Arbitrary key/value pairs stored in the report.
-        wandb_config: Ignored — accepted for backward-compat with callers
-            that have not yet migrated to the plugin API (P2-C/D).
     """
     detail_payload: dict[str, Any] = {
         "gate_passed": gate_result.passed,

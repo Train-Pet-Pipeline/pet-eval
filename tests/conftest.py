@@ -38,10 +38,6 @@ def sample_params() -> dict:
             "anomaly_set_path": "benchmark/anomaly_set_v1.jsonl",
             "audio_test_dir": "",
         },
-        "wandb": {
-            "project": "pet-eval",
-            "entity": "",
-        },
         "inference": {
             "schema_version": "1.0",
             "max_new_tokens": 1024,
