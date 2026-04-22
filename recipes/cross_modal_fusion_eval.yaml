@@ -1,0 +1,29 @@
+recipe:
+  recipe_id: cross_modal_fusion_eval
+  description: |
+    Cross-modal fusion evaluation across 3 rule-based strategies
+    (single_modal / and_gate / weighted). Phase 4 W2 fixture for
+    P2-B-2's fusion evaluator plugins.
+  scope: single_repo
+  owner_repo: pet-eval
+  schema_version: "2.4.0"
+  stages:
+    - name: eval
+      component_registry: evaluators
+      component_type: weighted_fusion
+      inputs: {}
+      config_path: configs/fusion/weighted.yaml
+      depends_on: []
+  variations:
+    - name: fusion_strategy
+      stage: eval
+      hydra_path: stages.eval.component_type
+      values:
+        - single_modal_fusion
+        - and_gate_fusion
+        - weighted_fusion
+  produces:
+    - fused_eval_metrics_v1
+  default_storage: local
+  required_plugins:
+    - pet_eval
