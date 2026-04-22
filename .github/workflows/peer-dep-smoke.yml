@@ -61,13 +61,14 @@ jobs:
           from pet_infra.registry import METRICS, EVALUATORS
           expected_metrics = {'anomaly_recall', 'audio_accuracy', 'calibration', 'kl_quantization',
                               'latency', 'mood_correlation', 'narrative_quality', 'schema_compliance'}
-          expected_evals = {'vlm_evaluator', 'audio_evaluator', 'quantized_vlm_evaluator'}
+          expected_evals = {'vlm_evaluator', 'audio_evaluator', 'quantized_vlm_evaluator',
+                            'single_modal_fusion', 'and_gate_fusion', 'weighted_fusion'}
           got_metrics = set(METRICS.module_dict.keys())
           got_evals = set(EVALUATORS.module_dict.keys())
           assert expected_metrics <= got_metrics, f'missing metrics: {expected_metrics - got_metrics}'
           assert expected_evals <= got_evals, f'missing evaluators: {expected_evals - got_evals}'
           print(f'OK 8 metrics registered: {sorted(expected_metrics)}')
-          print(f'OK 3 evaluators registered: {sorted(expected_evals)}')"
+          print(f'OK 6 evaluators registered: {sorted(expected_evals)}')"
 
       - name: Smoke — pet_eval entry-point discoverable
         run: |
