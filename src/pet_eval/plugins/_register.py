@@ -25,14 +25,15 @@ def register_all() -> None:
         import pet_infra  # noqa: F401  # peer-dep guard
     except ImportError as e:
         raise RuntimeError(
-            "pet-eval v2 requires pet-infra. Install via matrix row 2026.08-rc."
+            "pet-eval v2 requires pet-infra. "
+            "Install via latest matrix row (pet-infra/docs/compatibility_matrix.yaml)."
         ) from e
     try:
         import pet_train  # noqa: F401  # cross-repo peer-dep for AudioEvaluator (P2-D)
     except ImportError as e:
         raise RuntimeError(
             "pet-eval v2 requires pet-train runtime (audio inference). "
-            "Install via matrix row 2026.08-rc."
+            "Install via latest matrix row (pet-infra/docs/compatibility_matrix.yaml)."
         ) from e
 
     # Cross-repo peer-dep (Phase 3B): pet-quantize for QuantizedVlmEvaluator.
@@ -44,7 +45,9 @@ def register_all() -> None:
         if not _pq_ver.startswith("2."):
             import logging
             logging.getLogger(__name__).warning(
-                "pet-eval expects pet-quantize 2.x per matrix 2026.08-rc; got %s", _pq_ver
+                "pet-eval expects pet-quantize 2.x per latest matrix row "
+                "(pet-infra/docs/compatibility_matrix.yaml); got %s",
+                _pq_ver,
             )
     except ImportError:
         import logging
