@@ -26,9 +26,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-constrained = [
-    "outlines>=0.1",
-]
 dev = [
     "pytest",
     "pytest-cov",
