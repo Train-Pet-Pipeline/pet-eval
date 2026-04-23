@@ -5,4 +5,4 @@ plus rule-based cross-modal fusion) registered into the shared
 ``pet_infra.registry`` via the ``pet_infra.plugins`` entry point.
 """
 
-__version__ = "2.2.0"
+__version__ = "2.3.0"
