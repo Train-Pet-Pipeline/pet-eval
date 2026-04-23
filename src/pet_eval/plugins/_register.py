@@ -10,10 +10,17 @@ from __future__ import annotations
 def register_all() -> None:
     """Import plugin modules to trigger registration side-effects.
 
-    Guards against missing peer-deps (pet-infra, pet-train) before importing
-    any plugin modules. Metric modules are imported here to trigger
+    Guards against missing peer-deps (pet-schema, pet-infra, pet-train) before
+    importing any plugin modules. Metric modules are imported here to trigger
     ``@METRICS.register_module`` decorators.
     """
+    try:
+        import pet_schema  # noqa: F401  # peer-dep guard (Mode B — must come first)
+    except ImportError as e:
+        raise RuntimeError(
+            "pet-eval v2.x requires pet-schema installed first. "
+            "Install via matrix row (pet-infra/docs/compatibility_matrix.yaml)."
+        ) from e
     try:
         import pet_infra  # noqa: F401  # peer-dep guard
     except ImportError as e:
