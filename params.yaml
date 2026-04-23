@@ -32,6 +32,7 @@ inference:
   eval_images_dir: ""  # path to images for quantized eval; falls back to calibration output
 
 audio:
+  sample_rate: 16000
   classes:
     - "eating"
     - "drinking"
