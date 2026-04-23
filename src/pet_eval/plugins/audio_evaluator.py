@@ -6,10 +6,27 @@ import logging
 from pathlib import Path
 from typing import Any
 
+import yaml
 from pet_infra.registry import EVALUATORS, METRICS
 from pet_schema.model_card import ModelCard
 
 from pet_eval.plugins.gate import apply_gate
+
+_PARAMS_PATH = Path(__file__).parent.parent.parent.parent / "params.yaml"
+
+
+def _default_sample_rate() -> int:
+    """Read audio.sample_rate from params.yaml; fall back to 16000 if unavailable.
+
+    Returns:
+        Sample rate as an integer (e.g. 16000).
+    """
+    try:
+        with open(_PARAMS_PATH) as f:
+            params = yaml.safe_load(f)
+        return int(params["audio"]["sample_rate"])
+    except Exception:  # noqa: BLE001
+        return 16000
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +50,7 @@ class AudioEvaluator:
       metrics: list[str] — metric registry names to build
       thresholds: dict[str, float] — min_*/max_* gate config
       pretrained_path: str | None — PANNs checkpoint path
-      sample_rate: int — default 16000
+      sample_rate: int — default from params.yaml audio.sample_rate (16000 if unavailable)
       device: str | None — override torch device; None = auto-detect
     """
 
@@ -57,7 +74,7 @@ class AudioEvaluator:
         self._thresholds: dict[str, float] = cfg.get("thresholds", {})
         self._audio_test_dir: str | None = cfg.get("audio_test_dir")
         self._pretrained_path: str | None = cfg.get("pretrained_path")
-        self._sample_rate: int = int(cfg.get("sample_rate", 16000))
+        self._sample_rate: int = int(cfg.get("sample_rate", _default_sample_rate()))
         self._device: str | None = cfg.get("device")
 
     def run(self, input_card: ModelCard | None, recipe: Any) -> ModelCard:

@@ -2,7 +2,7 @@
 
 ## Gold Set Format
 
-Each entry in `gold_set_v1.jsonl` and `anomaly_set_v1.jsonl` is a single JSON object per line with the following structure:
+Each entry in `gold_set_v2.jsonl` and `anomaly_set_v1.jsonl` is a single JSON object per line with the following structure:
 
 ```json
 {
@@ -32,7 +32,7 @@ Each entry in `gold_set_v1.jsonl` and `anomaly_set_v1.jsonl` is a single JSON ob
 
 ## Current State
 
-The gold set files (`benchmark/gold_set_v1.jsonl`, `benchmark/anomaly_set_v1.jsonl`) are **not yet populated**.
+The gold set files (`benchmark/gold_set_v2.jsonl`, `benchmark/anomaly_set_v1.jsonl`, `benchmark/teacher_references_v1.jsonl`) are **not yet populated**. Path versions are authoritative in `params.yaml` (`benchmark.*_path`); this document tracks them.
 
 These files are excluded from git via `.gitignore` (`*.jsonl`) and must be obtained separately from the annotation team or downloaded via the benchmark download script (to be implemented in a future task).
 

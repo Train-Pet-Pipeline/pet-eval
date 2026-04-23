@@ -1,0 +1,17 @@
+# Shared config for cross_modal_fusion_eval recipe.
+#
+# The recipe's `fusion_strategy` ablation axis sweeps `component_type` across
+# {single_modal_fusion, and_gate_fusion, weighted_fusion}; all three fusion
+# evaluators accept `**_` so they each pick the key they need and ignore the
+# rest — keeping a single config file honest across the sweep.
+
+# WeightedFusionEvaluator: normalized weighted sum; missing modalities = 0.
+weights:
+  vlm: 0.6
+  audio: 0.4
+
+# AndGateFusionEvaluator: every modality must clear this threshold.
+threshold: 0.5
+
+# SingleModalFusionEvaluator: which modality to pass through.
+modality: vlm

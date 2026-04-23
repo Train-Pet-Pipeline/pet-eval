@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+import yaml
 
-from pet_eval.plugins.audio_evaluator import AudioEvaluator
+from pet_eval.plugins.audio_evaluator import AudioEvaluator, _default_sample_rate
 
 
 @pytest.fixture
@@ -156,3 +158,50 @@ def test_run_iterates_audio_files_and_computes_metrics(sample_card, tmp_path):
     assert "audio_overall_accuracy" in card.metrics
     assert card.metrics["audio_overall_accuracy"] == pytest.approx(1.0, abs=0.01)
     assert card.gate_status == "passed"
+
+
+def test_default_sample_rate_reads_from_params_yaml(tmp_path: Path) -> None:
+    """_default_sample_rate() must return params.yaml audio.sample_rate, not a hardcode."""
+    import pet_eval.plugins.audio_evaluator as mod
+
+    fake_params = tmp_path / "params.yaml"
+    fake_params.write_text(yaml.dump({"audio": {"sample_rate": 22050}}))
+
+    original_path = mod._PARAMS_PATH
+    try:
+        mod._PARAMS_PATH = fake_params
+        assert _default_sample_rate() == 22050
+    finally:
+        mod._PARAMS_PATH = original_path
+
+
+def test_audio_evaluator_uses_sample_rate_from_params(tmp_path: Path) -> None:
+    """AudioEvaluator without explicit sample_rate cfg should pick up params.yaml value."""
+    import pet_eval.plugins.audio_evaluator as mod
+
+    fake_params = tmp_path / "params.yaml"
+    fake_params.write_text(yaml.dump({"audio": {"sample_rate": 8000}}))
+
+    original_path = mod._PARAMS_PATH
+    try:
+        mod._PARAMS_PATH = fake_params
+        evaluator = AudioEvaluator(metrics=[], thresholds={})
+        assert evaluator._sample_rate == 8000
+    finally:
+        mod._PARAMS_PATH = original_path
+
+
+def test_audio_evaluator_cfg_sample_rate_overrides_params(tmp_path: Path) -> None:
+    """Explicit sample_rate in cfg must take precedence over params.yaml value."""
+    import pet_eval.plugins.audio_evaluator as mod
+
+    fake_params = tmp_path / "params.yaml"
+    fake_params.write_text(yaml.dump({"audio": {"sample_rate": 8000}}))
+
+    original_path = mod._PARAMS_PATH
+    try:
+        mod._PARAMS_PATH = fake_params
+        evaluator = AudioEvaluator(metrics=[], thresholds={}, sample_rate=44100)
+        assert evaluator._sample_rate == 44100
+    finally:
+        mod._PARAMS_PATH = original_path
