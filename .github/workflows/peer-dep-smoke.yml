@@ -30,7 +30,7 @@ jobs:
         run: pip install 'pet-infra @ git+https://github.com/Train-Pet-Pipeline/pet-infra@v2.6.0'
 
       - name: Step 3 — install pet-train (cross-repo runtime, Phase 5 v2.0.2)
-        run: pip install 'pet-train @ git+https://github.com/Train-Pet-Pipeline/pet-train@v2.0.2'
+        run: pip install 'pet-train @ git+https://github.com/Train-Pet-Pipeline/pet-train@v2.2.4'
 
       - name: Step 4 — install pet-quantize (cross-repo runtime, Phase 6 v2.0.1)
         run: pip install 'pet-quantize @ git+https://github.com/Train-Pet-Pipeline/pet-quantize@v2.0.1'
