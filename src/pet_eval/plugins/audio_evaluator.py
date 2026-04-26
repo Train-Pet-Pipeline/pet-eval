@@ -97,21 +97,42 @@ class AudioEvaluator:
         if input_card is None:
             raise ValueError("AudioEvaluator.run requires a trained model_card; got None.")
 
-        # Lazy cross-repo import — only resolved when plugin actually runs.
-        # Registry registration via _register.py already loaded the module;
-        # this ensures we don't pay the torch import cost at plugin build time.
-        from pet_train.audio.inference import AudioInference
+        # F026 fix: pet_train.audio.inference.AudioInference uses a custom
+        # MobileNetV2AudioSet whose state_dict shape is incompatible with the
+        # official PANNs checkpoint (the original F008 finding). F008 added
+        # PANNsAudioInference (wraps the upstream `panns_inference` package)
+        # but audio_evaluator still imported the broken legacy class — so the
+        # orchestrator audio eval path remained unrunnable on real PANNs
+        # weights. We default to the working PANNs backend; legacy path stays
+        # accessible via cfg `inference_backend: legacy_mobilenetv2`.
+        backend = (self._cfg.get("inference_backend") or "panns").lower()
+        if backend == "panns":
+            from pet_train.audio.panns_inference_plugin import PANNsAudioInference
 
-        checkpoint = (
-            self._pretrained_path or input_card.checkpoint_uri.replace("file://", "") or None
-        )
-        predicted, actual = self._collect_predictions_and_labels(
-            AudioInference(
+            checkpoint = self._pretrained_path or (
+                input_card.checkpoint_uri.replace("file://", "") or None
+            )
+            inference = PANNsAudioInference(
+                checkpoint_path=checkpoint,
+                device=self._device,
+            )
+        elif backend in ("legacy_mobilenetv2", "mobilenetv2_legacy"):
+            from pet_train.audio.inference import AudioInference
+
+            checkpoint = self._pretrained_path or (
+                input_card.checkpoint_uri.replace("file://", "") or None
+            )
+            inference = AudioInference(
                 pretrained_path=checkpoint,
                 device=self._device,
                 sample_rate=self._sample_rate,
             )
-        )
+        else:
+            raise ValueError(
+                f"AudioEvaluator unknown inference_backend={backend!r}; "
+                "valid: 'panns' (default) or 'legacy_mobilenetv2'"
+            )
+        predicted, actual = self._collect_predictions_and_labels(inference)
 
         metrics_out: dict[str, float] = self._compute_metrics(predicted, actual)
         gate = apply_gate(metrics_out, self._thresholds, tier=self._gate_tier)
