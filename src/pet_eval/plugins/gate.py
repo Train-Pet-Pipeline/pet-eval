@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from pet_eval.plugins.gate_tiers import resolve_tier
+
 
 @dataclass(frozen=True)
 class GateResult:
@@ -24,7 +26,12 @@ class GateResult:
     thresholds: dict[str, float]
 
 
-def apply_gate(metrics: dict[str, float], thresholds: dict[str, float]) -> GateResult:
+def apply_gate(
+    metrics: dict[str, float],
+    thresholds: dict[str, float] | None = None,
+    *,
+    tier: str | None = None,
+) -> GateResult:
     """Check metrics against min_*/max_* thresholds.
 
     For each threshold key:
@@ -35,13 +42,26 @@ def apply_gate(metrics: dict[str, float], thresholds: dict[str, float]) -> GateR
     Missing metrics default to 0 for min_ checks and +inf for max_ checks
     (conservative: missing = likely fail).
 
+    When ``tier`` is provided, the named preset from
+    :mod:`pet_eval.plugins.gate_tiers` is loaded first; explicit ``thresholds``
+    keys then override individual tier values (preset is the floor; explicit
+    is the choice).
+
     Args:
         metrics: Computed metric values keyed by metric name.
         thresholds: Threshold dict; only keys starting with min_/max_ are evaluated.
+        tier: Optional preset tier name (``strict`` / ``balanced`` / ``permissive``).
 
     Returns:
         A frozen :class:`GateResult` instance.
     """
+    if tier is not None:
+        merged = resolve_tier(tier)
+        if thresholds:
+            merged.update(thresholds)
+        thresholds = merged
+    elif thresholds is None:
+        thresholds = {}
     failures: list[str] = []
     for key, threshold in thresholds.items():
         if key.startswith("min_"):
