@@ -89,13 +89,61 @@ def test_run_returns_updated_card_when_dir_missing(sample_card, tmp_path):
         thresholds={},
         audio_test_dir=str(tmp_path / "nonexistent"),
     )
-    # AudioInference loads torch model — mock it to avoid weight download
-    with patch("pet_train.audio.inference.AudioInference") as mock_inf:
+    # F026: default backend is PANNs — patch PANNsAudioInference (was legacy AudioInference)
+    with patch("pet_train.audio.panns_inference_plugin.PANNsAudioInference") as mock_inf:
         mock_inf.return_value = MagicMock()
         card = evaluator.run(input_card=sample_card, recipe=SimpleNamespace())
     assert card.gate_status == "passed"  # no thresholds to violate
     assert card.task == "audio_eval"
     assert card.modality == "audio"
+
+
+def test_run_uses_panns_backend_by_default(sample_card, tmp_path):
+    """F026: AudioEvaluator default backend MUST be PANNs (not the broken legacy class)."""
+    evaluator = AudioEvaluator(
+        metrics=[],
+        thresholds={},
+        audio_test_dir=str(tmp_path / "nonexistent"),
+    )
+    # If we patch the LEGACY class and PANNs is the default, legacy should NOT be called.
+    with patch(
+        "pet_train.audio.panns_inference_plugin.PANNsAudioInference"
+    ) as mock_panns, patch("pet_train.audio.inference.AudioInference") as mock_legacy:
+        mock_panns.return_value = MagicMock()
+        mock_legacy.return_value = MagicMock()
+        evaluator.run(input_card=sample_card, recipe=SimpleNamespace())
+    assert mock_panns.called
+    assert not mock_legacy.called
+
+
+def test_run_legacy_backend_opt_in(sample_card, tmp_path):
+    """F026: cfg `inference_backend: legacy_mobilenetv2` selects the F008-broken class."""
+    evaluator = AudioEvaluator(
+        metrics=[],
+        thresholds={},
+        audio_test_dir=str(tmp_path / "nonexistent"),
+        inference_backend="legacy_mobilenetv2",
+    )
+    with patch(
+        "pet_train.audio.panns_inference_plugin.PANNsAudioInference"
+    ) as mock_panns, patch("pet_train.audio.inference.AudioInference") as mock_legacy:
+        mock_panns.return_value = MagicMock()
+        mock_legacy.return_value = MagicMock()
+        evaluator.run(input_card=sample_card, recipe=SimpleNamespace())
+    assert mock_legacy.called
+    assert not mock_panns.called
+
+
+def test_run_unknown_backend_raises(sample_card, tmp_path):
+    """F026: unknown inference_backend → ValueError listing valid options."""
+    evaluator = AudioEvaluator(
+        metrics=[],
+        thresholds={},
+        audio_test_dir=str(tmp_path / "nonexistent"),
+        inference_backend="bogus",
+    )
+    with pytest.raises(ValueError, match="unknown inference_backend"):
+        evaluator.run(input_card=sample_card, recipe=SimpleNamespace())
 
 
 def test_run_iterates_audio_files_and_computes_metrics(sample_card, tmp_path):
@@ -150,7 +198,11 @@ def test_run_iterates_audio_files_and_computes_metrics(sample_card, tmp_path):
         audio_test_dir=str(audio_root),
     )
 
-    with patch("pet_train.audio.inference.AudioInference", return_value=fake_inference_instance):
+    # F026: default backend is now PANNs; mock the upstream class
+    with patch(
+        "pet_train.audio.panns_inference_plugin.PANNsAudioInference",
+        return_value=fake_inference_instance,
+    ):
         card = evaluator.run(input_card=sample_card, recipe=SimpleNamespace())
 
     # Both predictions match ground truth → 100% accuracy.
