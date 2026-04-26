@@ -72,6 +72,7 @@ class AudioEvaluator:
         ]
         self._metric_names: list[str] = metric_names
         self._thresholds: dict[str, float] = cfg.get("thresholds", {})
+        self._gate_tier: str | None = cfg.get("gate_tier")
         self._audio_test_dir: str | None = cfg.get("audio_test_dir")
         self._pretrained_path: str | None = cfg.get("pretrained_path")
         self._sample_rate: int = int(cfg.get("sample_rate", _default_sample_rate()))
@@ -113,7 +114,7 @@ class AudioEvaluator:
         )
 
         metrics_out: dict[str, float] = self._compute_metrics(predicted, actual)
-        gate = apply_gate(metrics_out, self._thresholds)
+        gate = apply_gate(metrics_out, self._thresholds, tier=self._gate_tier)
 
         updated = input_card.metrics.copy()
         updated.update(metrics_out)

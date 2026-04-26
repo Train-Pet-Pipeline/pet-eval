@@ -29,6 +29,8 @@ class QuantizedVlmEvaluator:
       - metrics: list[str] — metric names to build via METRICS.build; supports
         any name registered in METRICS (e.g. "schema_compliance", "latency")
       - thresholds: dict[str, float] — min_*/max_* thresholds for apply_gate
+      - gate_tier: optional preset tier name (strict|balanced|permissive)
+        — see pet_eval.plugins.gate_tiers
       - target: str — RK platform (default "rk3576")
       - eval_set_uri: str | None — path to JSONL eval set forwarded to run_inference
       - params: dict — inference config passed to run_inference
@@ -47,6 +49,7 @@ class QuantizedVlmEvaluator:
         self._metrics: list[Any] = [METRICS.build({"type": name}) for name in metric_names]
         self._metric_names: list[str] = metric_names
         self._thresholds: dict[str, float] = cfg.get("thresholds", {})
+        self._gate_tier: str | None = cfg.get("gate_tier")
         self._target: str = cfg.get("target", "rk3576")
         self._eval_set_uri: str | None = cfg.get("eval_set_uri")
         self._params: dict[str, Any] = cfg.get("params", {})
@@ -84,7 +87,7 @@ class QuantizedVlmEvaluator:
         )
 
         metrics_out: dict[str, float] = self._compute_metrics(outputs)
-        gate = apply_gate(metrics_out, self._thresholds)
+        gate = apply_gate(metrics_out, self._thresholds, tier=self._gate_tier)
 
         merged_metrics = input_card.metrics.copy()
         merged_metrics.update(metrics_out)
