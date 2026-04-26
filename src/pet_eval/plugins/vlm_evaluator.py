@@ -21,6 +21,8 @@ class VLMEvaluator:
     Expected config keys (via Registry.build kwargs):
       - metrics: list[str] — metric names to build via METRICS.build
       - thresholds: dict[str, float] — min_<name>/max_<name> thresholds for apply_gate
+      - gate_tier: optional preset tier name (strict|balanced|permissive)
+        — see pet_eval.plugins.gate_tiers
       - gold_set_path: str — path to gold set JSONL
       - params: dict — inference/benchmark config passed to run_inference
     Optional: schema_version, anomaly_set_path, teacher_reference_path.
@@ -38,6 +40,7 @@ class VLMEvaluator:
         self._metrics: list[Any] = [METRICS.build({"type": name}) for name in metric_names]
         self._metric_names: list[str] = metric_names
         self._thresholds: dict[str, float] = cfg.get("thresholds", {})
+        self._gate_tier: str | None = cfg.get("gate_tier")
         self._gold_set_path: str | None = cfg.get("gold_set_path")
         self._params: dict[str, Any] = cfg.get("params", {})
 
@@ -71,7 +74,7 @@ class VLMEvaluator:
         )
 
         metrics_out: dict[str, float] = self._compute_metrics(outputs)
-        gate = apply_gate(metrics_out, self._thresholds)
+        gate = apply_gate(metrics_out, self._thresholds, tier=self._gate_tier)
 
         updated = input_card.metrics.copy()
         updated.update(metrics_out)
