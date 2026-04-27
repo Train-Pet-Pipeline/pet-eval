@@ -2,6 +2,11 @@
 
 Evaluation pipeline for Train-Pet-Pipeline. Provides metric plugins, evaluators, and harness integration for VLM, audio, and quantized model evaluation.
 
+## Recent
+
+- **v2.5.1** — F026 fix: `audio_evaluator` now defaults to PANNs backend instead of broken `AudioInference`; no code change needed in callers. Finding doc: [`F026`](../pet-infra/docs/ecosystem-validation/2026-04-25-findings/F026-audio-evaluator-uses-broken-AudioInference.md)
+- **v2.5.0** — `gate_tier` preset feature: pass `gate_tier: "strict" | "standard" | "lenient"` in evaluator config to load threshold bundles without spelling out every threshold individually.
+
 ## Install
 
 pet-eval is a peer-dep consumer: `pet-schema`, `pet-infra`, `pet-train`, and `pet-quantize` must be installed first with versions from the current matrix row in `pet-infra/docs/compatibility_matrix.yaml`. See `.github/workflows/ci.yml` for the canonical 6-step install order. For local dev in the shared `pet-pipeline` conda env:

@@ -42,10 +42,10 @@ pet-train → [pet-eval] → pet-quantize → pet-ota
 
 | Dependency | Mode | Locked version |
 |---|---|---|
-| pet-schema | β peer-dep (not in pyproject.dependencies) | v3.2.1 (compatibility_matrix 2026.09) |
-| pet-infra | β peer-dep (not in pyproject.dependencies) | v2.6.0 (compatibility_matrix 2026.09) |
-| pet-train | runtime cross-repo peer-dep (in pyproject.dependencies, no pin) | v2.0.2 |
-| pet-quantize | runtime cross-repo peer-dep (in pyproject.dependencies, no pin) | v2.0.1 |
+| pet-schema | β peer-dep (not in pyproject.dependencies) | v3.3.0 (compatibility_matrix 2026.11) |
+| pet-infra | β peer-dep (not in pyproject.dependencies) | v2.9.5 (compatibility_matrix 2026.11) |
+| pet-train | runtime cross-repo peer-dep (in pyproject.dependencies, no pin) | v2.2.5 |
+| pet-quantize | runtime cross-repo peer-dep (in pyproject.dependencies, no pin) | v2.1.0 |
 
 The CI install order (`.github/workflows/ci.yml` / `peer-dep-smoke.yml`) is 6-step:
 schema → infra → train → quantize → editable `--no-deps` → editable dev extras,
@@ -79,7 +79,7 @@ with a step-7 last-wins re-pin of pet-schema + pet-infra and a step-8 version as
 
 ```
 src/pet_eval/
-├── __init__.py                            ← __version__ = "2.3.0"
+├── __init__.py                            ← __version__ = "2.5.1"
 └── plugins/
     ├── __init__.py
     ├── _register.py                       ← register_all; peer-dep guards; entry point target
@@ -174,7 +174,7 @@ All three return an updated `ModelCard` from `.run(input_card, recipe)` with
 | Plugin | Inference path | Cross-repo |
 |---|---|---|
 | `vlm_evaluator` | `vlm_inference.run_inference` → HF transformers + PEFT LoRA merge | — |
-| `audio_evaluator` | lazy `from pet_train.audio.inference import AudioInference` | pet-train runtime |
+| `audio_evaluator` | `inference_backend` config switch: default `panns` → `pet_train.audio.PANNsAudioInference`; legacy `mobilenetv2` opt-in (F026) | pet-train runtime |
 | `quantized_vlm_evaluator` | lazy `from pet_quantize.inference.rkllm_runner import RKLLMRunner` | pet-quantize runtime |
 
 ### 4.4 Fusion evaluators (3 rule-based)
@@ -428,3 +428,12 @@ docstring — still a valid future cleanup if the metric catalog keeps growing.
 5. **Audio `classes` fixture parity** — `tests/conftest.py:sample_params` hardcodes the
    same 5-class list that `params.yaml:audio.classes` owns. A fixture that loads from
    `params.yaml` would prevent silent drift when the audio taxonomy changes.
+
+---
+
+### Recent (2026-04-27)
+
+F017-F027 续租验证周期的 pet-eval 相关修复：
+
+**F026** (`plugins/audio_evaluator.py`) — `AudioEvaluator` 新增 `inference_backend` config 参数，默认值 `"panns"`，使用 `pet_train.audio.PANNsAudioInference`（F008 中引入的新 PANNs backend）。历史的 `MobileNetV2`-based `AudioInference` 类改为 `inference_backend="mobilenetv2"` opt-in。修复前，`audio_evaluator` 尽管 F008 已在 pet-train 中引入 PANNs plugin，orchestrator 路径仍走破损的 legacy 类。§4.3 表格已相应更新。
+- 参见：`pet-infra/docs/ecosystem-validation/2026-04-25-findings/F026-audio-evaluator-still-imports-broken-legacy-AudioInference.md`
